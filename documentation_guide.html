@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earnings Call Sentiment Analyzer | Documentation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        serif: ['Electra', 'Georgia', 'Times New Roman', 'serif'],
+                        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    },
+                    colors: {
+                        background: '#000000', // Black
+                        foreground: '#ffffff', // White
+                        card: '#111111',       // Dark Grey
+                        cardForeground: '#ffffff',
+                        popover: '#111111',
+                        popoverForeground: '#ffffff',
+                        primary: '#ec4899',    // Pink
+                        primaryForeground: '#ffffff',
+                        secondary: '#222222',  // Grey
+                        secondaryForeground: '#ffffff',
+                        muted: '#222222',      // Grey
+                        mutedForeground: '#a3a3a3', // Light Grey
+                        accent: '#ec4899',     // Pink
+                        accentForeground: '#ffffff',
+                        border: '#333333',     // Grey
+                        input: '#333333',
+                        ring: '#ec4899',       // Pink
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @font-face {
+            font-family: 'Electra';
+            src: local('Georgia'); /* Fallback applied heavily if Electra is missing locally */
+        }
+        
+        html, body {
+            background-color: theme('colors.background');
+            min-height: 100vh;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        ::selection {
+            background-color: theme('colors.primary');
+            color: theme('colors.primaryForeground');
+        }
+
+        body {
+            color: theme('colors.foreground');
+            font-family: theme('fontFamily.serif');
+            line-height: 1.6;
+        }
+
+        /* Custom Scrollbar - Grey & Pink */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: theme('colors.background'); }
+        ::-webkit-scrollbar-thumb { background: theme('colors.border'); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: theme('colors.primary'); }
+
+        /* Typography */
+        h1, h2, h3, h4, h5, h6 { font-weight: 600; letter-spacing: -0.025em; }
+        code { font-family: theme('fontFamily.mono'); font-size: 0.875em; }
+        
+        /* Layout */
+        .sidebar { height: 100vh; position: fixed; top: 0; left: 0; width: 280px; overflow-y: auto; border-right: 1px solid theme('colors.border'); background: theme('colors.background'); }
+        .main-content { margin-left: 280px; padding: 3rem 4rem; max-width: 1200px; }
+        
+        /* Shadcn UI Utilities */
+        .card { background: theme('colors.card'); border: 1px solid theme('colors.border'); border-radius: 0.5rem; transition: border-color 0.2s ease; }
+        .card:hover { border-color: theme('colors.primary'); }
+        
+        .badge { display: inline-flex; align-items: center; border-radius: 9999px; background-color: rgba(236, 72, 153, 0.1); color: theme('colors.primary'); border: 1px solid rgba(236, 72, 153, 0.3); padding: 0.125rem 0.625rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;}
+        
+        .code-block { background: #000000; border: 1px solid theme('colors.border'); border-radius: 0.5rem; padding: 1rem; overflow-x: auto; margin-top: 0.5rem; margin-bottom: 1.5rem; border-left: 2px solid theme('colors.primary'); }
+        
+        /* Accordions */
+        details.accordion { border-bottom: 1px solid theme('colors.border'); }
+        details.accordion > summary { padding: 1rem 0; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; font-weight: 500; transition: color 0.2s; }
+        details.accordion > summary:hover { color: theme('colors.primary'); }
+        details.accordion > summary::-webkit-details-marker { display: none; }
+        details.accordion > summary::after { content: '+'; font-size: 1.25rem; color: theme('colors.mutedForeground'); transition: transform 0.2s, color 0.2s; }
+        details.accordion[open] > summary { color: theme('colors.primary'); }
+        details.accordion[open] > summary::after { content: '−'; color: theme('colors.primary'); }
+        details.accordion > .accordion-content { padding-bottom: 1rem; color: theme('colors.mutedForeground'); font-size: 0.95rem; }
+
+        /* Navigation */
+        .nav-link { display: block; padding: 0.5rem 1rem; color: theme('colors.mutedForeground'); text-decoration: none; border-radius: 0.375rem; transition: background-color 0.2s, color 0.2s; font-size: 0.9rem;}
+        .nav-link:hover { background-color: rgba(236, 72, 153, 0.1); color: theme('colors.primary'); }
+        .nav-header { padding: 1rem 1rem 0.25rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: theme('colors.foreground'); }
+
+        @media (max-width: 1024px) {
+            .sidebar { display: none; }
+            .main-content { margin-left: 0; padding: 2rem; }
+        }
+    </style>
+</head>
+<body class="bg-background text-foreground min-h-screen w-full overflow-x-hidden">
+
+    <!-- Sidebar -->
+    <aside class="sidebar py-6">
+        <div class="px-6 mb-6 border-b border-border pb-4">
+            <h1 class="text-xl font-bold tracking-tight text-white">Earnings Analyzer</h1>
+            <p class="text-xs text-primary mt-1 uppercase tracking-wider font-semibold">Quantitative NLP Guide</p>
+        </div>
+        
+        <nav class="space-y-1 px-2">
+            <div class="nav-header">Knowledge Base</div>
+            <a href="#kb-nlp" class="nav-link">NLP Models & Constraints</a>
+            <a href="#kb-finance" class="nav-link">Event Studies & Econometrics</a>
+            
+            <div class="nav-header mt-6">Architecture</div>
+            <a href="#arch-tree" class="nav-link">File Structure</a>
+            <a href="#arch-knowing" class="nav-link">The "Knowing" Functions</a>
+            
+            <div class="nav-header mt-6">Implementation Guide</div>
+            <a href="#phase-0-2" class="nav-link">Phases 0-2: Data & Clean</a>
+            <a href="#phase-3-5" class="nav-link">Phases 3-5: Score & Validate</a>
+            <a href="#phase-6-9" class="nav-link">Phases 6-9: Regress & Backtest</a>
+            <a href="#phase-10-12" class="nav-link">Phases 10-12: Robustness</a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content space-y-16">
+        
+        <!-- Header -->
+        <header class="space-y-4 border-b border-border pb-8">
+            <div class="badge">Version 1.0.0</div>
+            <h1 class="text-4xl font-bold tracking-tight text-white">Earnings Call Sentiment Analyzer</h1>
+            <p class="text-lg text-mutedForeground max-w-3xl">
+                A comprehensive engineering blueprint for building a quantitative NLP pipeline. This guide covers the theoretical underpinnings, the deep "why" behind structural design choices, and a step-by-step code implementation path.
+            </p>
+        </header>
+
+        <!-- Section 1: Knowledge Base & Resources -->
+        <section id="kb-nlp" class="space-y-8">
+            <h2 class="text-2xl font-bold border-b border-border pb-2 text-white">1. Knowledge Base & Resources</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- NLP Card -->
+                <div class="card p-6 space-y-4">
+                    <h3 class="text-xl font-semibold flex items-center gap-2 text-white">
+                        <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        NLP: Models & Constraints
+                    </h3>
+                    <div class="space-y-3 text-sm text-mutedForeground">
+                        <p><strong class="text-primary">FinBERT (ProsusAI):</strong> A BERT model fine-tuned specifically on financial data (Financial PhraseBank). It categorizes text into Positive, Neutral, or Negative. Standard BERT fails in finance because words like "liability" or "tax" are neutral facts in accounting, but negative in standard English.</p>
+                        <p><strong class="text-primary">The 512-Token Limit:</strong> Transformer models possess a hard quadratic memory limit. You cannot feed a 10,000-word earnings call directly into BERT. Standard truncation discards the end of the call (often where Q&A reveals the most truth). <em class="text-white">Chunking</em> is the mandatory solution.</p>
+                        <p><strong class="text-primary">Loughran-McDonald (LM):</strong> The academic gold standard baseline (2011). A bag-of-words dictionary built from 10-K filings. It is transparent and fast, used here to prove that complex Transformers (FinBERT) actually capture nuance better than simple word counting.</p>
+                    </div>
+                </div>
+
+                <!-- Finance Card -->
+                <div class="card p-6 space-y-4">
+                    <h3 class="text-xl font-semibold flex items-center gap-2 text-white">
+                        <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                        Finance: Event Studies & Math
+                    </h3>
+                    <div class="space-y-3 text-sm text-mutedForeground">
+                        <p><strong class="text-primary">Event Study & Day 0:</strong> We isolate the market's reaction to the call. If a call happens <em>After Market Close (AMC)</em>, the price reaction occurs the <em>next</em> trading day. Day 0 must be aligned perfectly, otherwise you test the model on random noise.</p>
+                        <p><strong class="text-primary">Market Model & CAR:</strong> Stock returns ($R_{it}$) are driven by the market ($R_{mt}$). We estimate normal behavior: $R_{it} = \alpha + \beta R_{mt}$ over a [-250, -30] window. The Cumulative Abnormal Return (CAR) is the sum of the residuals ($AR$) during the [0, +1] event window.</p>
+                        <p><strong class="text-primary">Econometrics (Newey-West):</strong> When regressing CAR on Sentiment, errors are often correlated across time or firms (heteroskedasticity). We use HAC (Heteroskedasticity and Autocorrelation Consistent) standard errors to ensure our $t$-statistics aren't falsely inflated.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Architecture -->
+        <section id="arch-tree" class="space-y-8">
+            <h2 class="text-2xl font-bold border-b border-border pb-2 text-white">2. Enhanced Architecture & The "Knowing"</h2>
+            
+            <p class="text-mutedForeground">The structure avoids spaghetti code. Each script runs linearly, saving state to Parquet. The "Knowing" explains the deep logic behind the code architecture.</p>
+
+            <div class="card p-6 font-mono text-sm">
+                <div class="text-primary font-bold mb-2">earnings-sentiment/</div>
+                <div class="ml-4 border-l border-border pl-4 space-y-1 text-mutedForeground">
+                    <div><span class="text-white">├── data/</span> <span class="text-xs ml-2 opacity-60"># Raw inputs & Processed Parquets</span></div>
+                    <div><span class="text-white">├── src/</span> <span class="text-xs ml-2 opacity-60"># Core execution pipeline</span></div>
+                    <div>│   ├── clean.py</div>
+                    <div>│   ├── sentiment_finbert.py</div>
+                    <div>│   ├── event_study.py</div>
+                    <div>│   ├── regression.py</div>
+                    <div>│   └── backtest.py</div>
+                    <div><span class="text-white">├── reports/</span> <span class="text-xs ml-2 opacity-60"># Markdown results & figures</span></div>
+                    <div><span class="text-white">└── requirements.txt</span></div>
+                </div>
+            </div>
+
+            <div id="arch-knowing" class="space-y-6">
+                
+                <!-- clean.py -->
+                <div class="space-y-3">
+                    <h3 class="text-lg font-semibold text-white">A. <code>src/clean.py</code>: The Section Splitter</h3>
+                    <p class="text-sm text-mutedForeground"><strong class="text-primary">The Knowing:</strong> Prepared remarks are legally sanitized and rehearsed. Q&A is spontaneous. Literature proves Q&A holds the alpha. We use regex to split them based on standard operator phrasing.</p>
+                    <div class="code-block text-sm text-mutedForeground">
+<pre><code class="text-white"><span class="text-primary">def</span> split_sections(text: str) -> dict:
+    <span class="text-mutedForeground"># We look for the pivot point where management stops reading and analysts start asking.</span>
+    qa_patterns = [r"we are now ready to open the floor for questions", r"question-and-answer session"]
+    <span class="text-primary">for</span> pat <span class="text-primary">in</span> qa_patterns:
+        match = re.search(pat, text, flags=re.IGNORECASE)
+        <span class="text-primary">if</span> match:
+            <span class="text-primary">return</span> {"prepared": text[:match.start()], "qa": text[match.end():]}
+    <span class="text-primary">return</span> {"prepared": text, "qa": ""}</code></pre>
+                    </div>
+                </div>
+
+                <!-- sentiment_finbert.py -->
+                <div class="space-y-3">
+                    <h3 class="text-lg font-semibold text-white">B. <code>src/sentiment_finbert.py</code>: The Context-Preserving Chunker</h3>
+                    <p class="text-sm text-mutedForeground"><strong class="text-primary">The Knowing:</strong> If we truncate at 512 tokens, we lose the end of the call. If we split blindly by character, we cut sentences in half, destroying transformer attention maps. We must tokenize by sentence first, then greedily pack them into 510-token chunks.</p>
+                    <div class="code-block text-sm text-mutedForeground">
+<pre><code class="text-white"><span class="text-primary">import</span> nltk
+<span class="text-primary">def</span> chunk_sentences(text: str, tokenizer, max_tokens: int = 510) -> list:
+    sentences = nltk.sent_tokenize(text)
+    chunks, current_chunk, current_tokens = [], [], 0
+    
+    <span class="text-primary">for</span> sent <span class="text-primary">in</span> sentences:
+        sent_tokens = len(tokenizer.tokenize(sent))
+        <span class="text-primary">if</span> current_tokens + sent_tokens <= max_tokens:
+            current_chunk.append(sent)
+            current_tokens += sent_tokens
+        <span class="text-primary">else</span>:
+            chunks.append(" ".join(current_chunk))
+            current_chunk = [sent]
+            current_tokens = sent_tokens
+    
+    <span class="text-primary">if</span> current_chunk: chunks.append(" ".join(current_chunk))
+    <span class="text-primary">return</span> chunks</code></pre>
+                    </div>
+                </div>
+
+                <!-- event_study.py -->
+                <div class="space-y-3">
+                    <h3 class="text-lg font-semibold text-white">C. <code>src/event_study.py</code>: The Time Aligner</h3>
+                    <p class="text-sm text-mutedForeground"><strong class="text-primary">The Knowing:</strong> A fatal flaw in quant research is Look-Ahead Bias. If a call happens at 5:00 PM (After Market Close), trading on Day 0's close implies time travel. Day 0 must be programmatically forced to the <em>next</em> trading day.</p>
+                    <div class="code-block text-sm text-mutedForeground">
+<pre><code class="text-white"><span class="text-primary">def</span> get_event_day_zero(call_date, call_timing: str, trading_days: list) -> pd.Timestamp:
+    <span class="text-mutedForeground"># If After Market Close (AMC), reaction cannot occur until tomorrow.</span>
+    <span class="text-primary">if</span> call_timing.upper() <span class="text-primary">in</span> ["AMC", "AFTER_CLOSE"]:
+        future_days = [d <span class="text-primary">for</span> d <span class="text-primary">in</span> trading_days <span class="text-primary">if</span> d > call_date]
+        <span class="text-primary">return</span> min(future_days)
+    <span class="text-mutedForeground"># BMO (Before Market Open) reacts today.</span>
+    <span class="text-primary">return</span> min([d <span class="text-primary">for</span> d <span class="text-primary">in</span> trading_days <span class="text-primary">if</span> d >= call_date])</code></pre>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Section 3: Implementation Guide -->
+        <section id="phase-0-2" class="space-y-8">
+            <h2 class="text-2xl font-bold border-b border-border pb-2 text-white">3. Step-by-Step Task Guide</h2>
+            
+            <!-- Phase 0-2 -->
+            <div class="space-y-4">
+                <h3 class="text-xl font-semibold text-white">Phases 0-2: Foundation, Sourcing & Cleaning</h3>
+                
+                <details class="accordion">
+                    <summary>Phase 0: Setup & Repository</summary>
+                    <div class="accordion-content space-y-4 pt-2">
+                        <p>Initialize the isolated Python environment and verify PyTorch/Transformers.</p>
+                        <div class="code-block text-sm text-mutedForeground">
+<pre><code class="text-white"><span class="text-mutedForeground"># Bash Terminal</span>
+mkdir earnings-sentiment && cd earnings-sentiment
+python -m venv .venv
+source .venv/bin/activate  <span class="text-mutedForeground"># Linux/Mac</span>
+
+pip install pandas numpy pyarrow statsmodels yfinance transformers torch nltk scipy
+mkdir -p data/raw data/processed src reports
+echo "data/" > .gitignore
+echo ".venv/" >> .gitignore</code></pre>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="accordion">
+                    <summary>Phase 1: Data Sourcing</summary>
+                    <div class="accordion-content space-y-4 pt-2">
+                        <p>Fetch transcripts from HF and map pricing using <code>yfinance</code>.</p>
+                        <div class="code-block text-sm text-mutedForeground">
+<pre><code class="text-white"><span class="text-mutedForeground"># Python: fetch_data.py</span>
+<span class="text-primary">import</span> yfinance <span class="text-primary">as</span> yf
+<span class="text-primary">from</span> datasets <span class="text-primary">import</span> load_dataset
+<span class="text-primary">import</span> pandas <span class="text-primary">as</span> pd
+
+<span class="text-mutedForeground"># 1. Transcripts</span>
+ds = load_dataset("soumakchak/earnings_call_transcript_lite", split="train")
+df_transcripts = ds.to_pandas()
+df_transcripts.to_parquet("data/raw/transcripts.parquet")
+
+<span class="text-mutedForeground"># 2. Prices</span>
+tickers = df_transcripts['ticker'].unique().tolist()
+prices = yf.download(tickers + ["SPY"], start="2015-01-01", end="2024-01-01")['Adj Close']
+prices.to_parquet("data/raw/prices.parquet")</code></pre>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="accordion">
+                    <summary>Phase 2: Cleaning & Parsing</summary>
+                    <div class="accordion-content space-y-4 pt-2">
+                        <p>Run the section splitting function across the dataset and remove safe harbors.</p>
+                        <div class="code-block text-sm text-mutedForeground">
+<pre><code class="text-white"><span class="text-mutedForeground"># Python: src/clean.py</span>
+<span class="text-primary">import</span> pandas <span class="text-primary">as</span> pd
+<span class="text-primary">from</span> src.clean <span class="text-primary">import</span> split_sections, remove_disclaimers
+
+df = pd.read_parquet("data/raw/transcripts.parquet")
+
+<span class="text-mutedForeground"># Apply cleaning</span>
+df['text_clean'] = df['text'].apply(remove_disclaimers)
+splits = df['text_clean'].apply(split_sections)
+
+df['prepared_remarks'] = splits.apply(<span class="text-primary">lambda</span> x: x['prepared'])
+df['qa_section'] = splits.apply(<span class="text-primary">lambda</span> x: x['qa'])
+
+<span class="text-mutedForeground"># Drop invalid lengths</span>
+df['word_count'] = df['text_clean'].str.split().str.len()
+df = df[df['word_count'] > 500].drop_duplicates(subset=['ticker', 'date'])
+
+df.to_parquet("data/processed/calls_clean.parquet")</code></pre>
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- Phase 3-5 -->
+            <div id="phase-3-5" class="space-y-4 pt-6">
+                <h3 class="text-xl font-semibold text-white">Phases 3-5: Event Study & Sentiment Scoring</h3>
+                
+                <details class="accordion">
+                    <summary>Phase 3: Event Study (CAR)</summary>
+                    <div class="accordion-content space-y-4 pt-2">
+                        <p>Loop through dates, align Day 0, and run Statsmodels OLS for Alpha/Beta.</p>
+                        <div class="code-block text-sm text-mutedForeground">
+<pre><code class="text-white"><span class="text-mutedForeground"># Python: src/event_study.py</span>
+<span class="text-primary">import</span> statsmodels.api <span class="text-primary">as</span> sm
+<span class="text-primary">import</span> pandas <span class="text-primary">as</span> pd
+
+<span class="text-primary">def</span> get_market_model(stock_ret, market_ret):
+    X = sm.add_constant(market_ret)
+    model = sm.OLS(stock_ret, X).fit()
+    <span class="text-primary">return</span> model.params['const'], model.params.iloc[1] <span class="text-mutedForeground"># Alpha, Beta</span></code></pre>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="accordion">
+                    <summary>Phase 4: FinBERT & LM Scoring</summary>
+                    <div class="accordion-content space-y-4 pt-2">
+                        <p>Initialize transformers pipeline with GPU support and chunk processing.</p>
+                        <div class="code-block text-sm text-mutedForeground">
+<pre><code class="text-white"><span class="text-mutedForeground"># Python: src/sentiment_finbert.py</span>
+<span class="text-primary">import</span> torch
+<span class="text-primary">from</span> transformers <span class="text-primary">import</span> AutoTokenizer, AutoModelForSequenceClassification
+
+device = "cuda" <span class="text-primary">if</span> torch.cuda.is_available() <span class="text-primary">else</span> "cpu"
+tokenizer = AutoTokenizer.from_pretrained("ProsusAI/finbert")
+model = AutoModelForSequenceClassification.from_pretrained("ProsusAI/finbert").to(device)
+
+<span class="text-primary">def</span> score_text(text):
+    chunks = chunk_sentences(text, tokenizer)
+    inputs = tokenizer(chunks, padding=True, truncation=True, return_tensors="pt").to(device)
+    <span class="text-primary">with</span> torch.no_grad():
+        outputs = model(**inputs)
+        probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
+    
+    pos_prob = probs[:, 0].mean().item()
+    neg_prob = probs[:, 1].mean().item()
+    <span class="text-primary">return</span> pos_prob - neg_prob <span class="text-mutedForeground"># Net sentiment score</span></code></pre>
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- Phase 6-9 -->
+            <div id="phase-6-9" class="space-y-4 pt-6">
+                <h3 class="text-xl font-semibold text-white">Phases 6-9: Controlled Regressions & Backtesting</h3>
+                
+                <details class="accordion">
+                    <summary>Phases 6-7: Controlled Regression (HAC)</summary>
+                    <div class="accordion-content space-y-4 pt-2">
+                        <p>Control for the EPS surprise. We want to know if the <em>words</em> matter beyond the <em>numbers</em>.</p>
+                        <div class="code-block text-sm text-mutedForeground">
+<pre><code class="text-white"><span class="text-mutedForeground"># Python: src/regression.py</span>
+<span class="text-primary">import</span> statsmodels.formula.api <span class="text-primary">as</span> smf
+
+<span class="text-mutedForeground"># Standardize sentiment</span>
+df['sent_z'] = (df['finbert_score'] - df['finbert_score'].mean()) / df['finbert_score'].std()
+
+<span class="text-mutedForeground"># OLS Regression with Newey-West standard errors (cov_type='HAC')</span>
+model = smf.ols('CAR_0_1 ~ sent_z + eps_surprise + log_mcap', data=df).fit(
+    cov_type='HAC', cov_kwds={'maxlags': 1}
+)
+print(model.summary())</code></pre>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="accordion">
+                    <summary>Phases 8-9: Trading Backtest</summary>
+                    <div class="accordion-content space-y-4 pt-2">
+                        <p>Sort stocks into quintiles. Long Q5, Short Q1. Add transaction friction.</p>
+                        <div class="code-block text-sm text-mutedForeground">
+<pre><code class="text-white"><span class="text-mutedForeground"># Python: src/backtest.py</span>
+<span class="text-primary">def</span> backtest(df, cost_bps=10):
+    df['quintile'] = pd.qcut(df['sent_z'], 5, labels=False)
+    
+    longs = df[df['quintile'] == 4]['CAR_0_1'].mean()
+    shorts = df[df['quintile'] == 0]['CAR_0_1'].mean()
+    
+    <span class="text-mutedForeground"># Return spread minus transaction costs (two legs, round trip)</span>
+    cost_decimal = cost_bps / 10000.0
+    spread = (longs - shorts) - (4 * cost_decimal)
+    
+    <span class="text-primary">return</span> spread</code></pre>
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- Phase 10-12 -->
+            <div id="phase-10-12" class="space-y-4 pt-6">
+                <h3 class="text-xl font-semibold text-white">Phases 10-12: Robustness & Finalization</h3>
+                <div class="card p-6 space-y-4">
+                    <p class="text-mutedForeground text-sm">
+                        <strong class="text-white">Robustness Checks:</strong> Winsorize the top/bottom 1% of CARs to ensure results aren't driven by 5 outlier penny stocks. Exclude the March 2020 COVID shock.
+                    </p>
+                    <p class="text-mutedForeground text-sm">
+                        <strong class="text-white">Reporting:</strong> Write <code>reports/final_report.md</code>. Be honest if transaction costs destroy the alpha. Write your requirements file and tag Git.
+                    </p>
+                    <div class="code-block text-sm text-mutedForeground">
+<pre><code class="text-white"><span class="text-mutedForeground"># Freeze environment</span>
+pip freeze > requirements.txt
+git add .
+git commit -m "feat: complete event study and backtest pipeline"
+git tag v1.0.0</code></pre>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+        
+        <footer class="border-t border-border pt-8 pb-12 text-center text-sm text-mutedForeground">
+            Earnings Call Sentiment Analyzer - <span class="text-primary">Architectural Blueprint & Guide</span>
+        </footer>
+    </main>
+
+</body>
+</html>
