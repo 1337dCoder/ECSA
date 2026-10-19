@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Build Guide - Earnings Call Sentiment Analyzer</title>
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/electra');
+
+        :root {
+            --bg-base: #000000;
+            --bg-card: #0a0a0a;
+            --bg-surface: #111111;
+            --text-main: #ffffff;
+            --text-muted: #a0a0a0;
+            --accent-pink: #ff69b4;
+            --accent-fuchsia: #ff00ff;
+            --border: #222222;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: 'Electra', serif;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
+
+        h1, h2, h3 {
+            color: var(--text-main);
+            font-weight: normal;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            border-bottom: 2px solid var(--accent-fuchsia);
+            padding-bottom: 10px;
+            display: inline-block;
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            color: var(--accent-pink);
+            margin-top: 40px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+            transition: border-color 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: var(--accent-fuchsia);
+        }
+
+        a {
+            color: var(--accent-pink);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--accent-pink);
+            transition: all 0.2s;
+        }
+
+        a:hover {
+            color: var(--accent-fuchsia);
+            border-bottom-style: solid;
+        }
+
+        .resource-list {
+            list-style-type: square;
+            color: var(--text-muted);
+            padding-left: 20px;
+        }
+
+        .resource-list li {
+            margin-bottom: 10px;
+        }
+
+        .resource-list span {
+            color: var(--text-main);
+        }
+
+        pre {
+            background: var(--bg-surface);
+            border-left: 4px solid var(--accent-fuchsia);
+            padding: 20px;
+            overflow-x: auto;
+            border-radius: 4px;
+            color: #d4d4d4;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            margin: 20px 0;
+        }
+
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--accent-pink);
+            background: var(--bg-surface);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            background: var(--accent-fuchsia);
+            color: var(--bg-base);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .explanation {
+            color: var(--text-muted);
+            font-size: 1rem;
+            margin-top: 15px;
+            border-top: 1px dashed var(--border);
+            padding-top: 15px;
+        }
+
+        .fuchsia-text { color: var(--accent-fuchsia); }
+        .pink-text { color: var(--accent-pink); }
+        
+        /* Custom scrollbar for pure dark theme */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-base);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 5px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-pink);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Earnings Call Sentiment Analyzer <span class="fuchsia-text">Build Guide</span></h1>
+    <p style="color: var(--text-muted); font-size: 1.1rem; margin-bottom: 50px;">
+        A comprehensive, step-by-step implementation manual to construct the pipeline from raw transcripts to trading backtest.
+    </p>
+
+    <!-- RESOURCES SECTION -->
+    <div class="card" id="resources">
+        <h2>Essential Resources & Knowledge</h2>
+        <p class="explanation" style="border: none; padding: 0;">Before writing code, ensure you have access to the following academic and technical resources to validate the pipeline:</p>
+        <ul class="resource-list">
+            <li><span>Transcripts Dataset:</span> Hugging Face <code>kurry/sp500_earnings_transcripts</code> (Approx 33k S&P 500 transcripts).</li>
+            <li><span>Financial NLP Model:</span> Hugging Face <code>ProsusAI/finbert</code> (BERT fine-tuned on financial text for Positive/Neutral/Negative classification).</li>
+            <li><span>Dictionary Baseline:</span> <a href="https://sraf.nd.edu/loughranmcdonald-master-dictionary/" target="_blank">Loughran-McDonald Master Dictionary</a> (Required to prevent false negatives on words like "liability" or "tax").</li>
+            <li><span>Market Data API:</span> <code>yfinance</code> for daily adjusted close prices and SPY benchmark returns.</li>
+            <li><span>Econometrics Theory:</span> Event Study Methodology (MacKinlay 1997) for CAR estimation, and Newey-West HAC robust standard errors for regressions.</li>
+        </ul>
+    </div>
+
+    <!-- PHASE 0 -->
+    <div class="card">
+        <div class="phase-badge">Phase 0: Environment Setup</div>
+        <h3>Repository Foundation</h3>
+        <pre><code>mkdir earnings-sentiment && cd earnings-sentiment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+pip install pandas numpy pyarrow matplotlib seaborn scipy statsmodels
+pip install transformers datasets torch yfinance jupyter streamlit</code></pre>
+        <div class="explanation">
+            <strong>What this does:</strong> Initializes an isolated Python environment and installs the heavy computational dependencies. <code>pyarrow</code> is crucial for fast Parquet I/O, <code>transformers/torch</code> run the FinBERT model, and <code>statsmodels</code> handles the OLS regressions with HAC standard errors.
+        </div>
+    </div>
+
+    <!-- PHASE 1 & 2 -->
+    <div class="card">
+        <div class="phase-badge">Phase 1 & 2: Sourcing & Cleaning</div>
+        <h3>Parsing Transcripts (src/clean.py)</h3>
+        <pre><code>import re
+import pandas as pd
+
+def split_sections(text: str) -> dict:
+    """Isolates spontaneous Q&A from scripted management remarks."""
+    patterns = [
+        r"(?:we will now|we'll now)\s+(?:open|begin)\s+(?:the\s+)?(?:lines?|floor)?\s*(?:for\s+)?(?:questions?|q&a)",
+        r"question[\s\-]and[\s\-]answer\s+session"
+    ]
+    
+    for pat in patterns:
+        match = re.search(pat, text, flags=re.IGNORECASE)
+        if match:
+            return {
+                "prepared_remarks": text[:match.start()].strip(),
+                "qa_section": text[match.end():].strip()
+            }
+    return {"prepared_remarks": text.strip(), "qa_section": ""}
+
+def remove_disclaimers(text: str) -> str:
+    """Removes legal safe-harbor statements that skew sentiment negatively."""
+    clean_text = re.sub(r"forward[\s\-]looking\s+statements?.*?(?:cautionary|reform\s+act).*?(?=\n\n|\Z)", "", text, flags=re.IGNORECASE | re.DOTALL)
+    return clean_text.strip()</code></pre>
+        <div class="explanation">
+            <strong>What this does:</strong> Executives script their Prepared Remarks to sound overly optimistic, while the Q&A section reveals true dynamics. The <code>split_sections</code> function uses regex to find the exact moment the operator opens the line. <code>remove_disclaimers</code> strips out mandatory risk disclosures that trick sentiment models into flagging the call as "Negative" due to legal jargon.
+        </div>
+    </div>
+
+    <!-- PHASE 3 -->
+    <div class="card">
+        <div class="phase-badge">Phase 3: Event Study</div>
+        <h3>Abnormal Returns (src/event_study.py)</h3>
+        <pre><code>import pandas as pd
+
+def get_event_day_zero(call_date: pd.Timestamp, call_timing: str, trading_days: list) -> pd.Timestamp:
+    """Aligns the market reaction to the correct trading day."""
+    if call_timing.upper() in ["AMC", "AFTER_CLOSE"]:
+        future_days = [d for d in trading_days if d > call_date]
+        return min(future_days)
+    else:  # BMO (Before Market Open)
+        valid_days = [d for d in trading_days if d >= call_date]
+        return min(valid_days)
+
+def compute_car(returns_df, alpha, beta, event_day):
+    """Computes Cumulative Abnormal Return [0, +1]"""
+    # AR = Stock_Return - (Alpha + Beta * Market_Return)
+    event_returns = returns_df.loc[event_day : event_day + pd.Timedelta(days=1)]
+    ar = event_returns['stock'] - (alpha + beta * event_returns['market'])
+    return ar.sum()</code></pre>
+        <div class="explanation">
+            <strong>What this does:</strong> Fixes the most common algorithmic trading bug: Look-Ahead Bias. If a company reports earnings After Market Close (AMC), the stock price cannot react until the <em>next</em> trading day. This code accurately aligns Day 0. It then calculates the CAR by subtracting the expected market movement (Beta * Market) from the actual stock movement.
+        </div>
+    </div>
+
+    <!-- PHASE 4 -->
+    <div class="card">
+        <div class="phase-badge">Phase 4: Sentiment Engine</div>
+        <h3>FinBERT Chunking (src/sentiment_finbert.py)</h3>
+        <pre><code>import nltk
+import torch
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+tokenizer = AutoTokenizer.from_pretrained("ProsusAI/finbert")
+model = AutoModelForSequenceClassification.from_pretrained("ProsusAI/finbert")
+
+def chunk_sentences(text: str, max_tokens: int = 510) -> list:
+    """Packs sentences into 510-token chunks to bypass BERT limits."""
+    sentences = nltk.sent_tokenize(text)
+    chunks, curr_chunk, curr_tokens = [], [], 0
+    
+    for sent in sentences:
+        tokens = len(tokenizer.tokenize(sent))
+        if curr_tokens + tokens <= max_tokens:
+            curr_chunk.append(sent)
+            curr_tokens += tokens
+        else:
+            chunks.append(" ".join(curr_chunk))
+            curr_chunk, curr_tokens = [sent], tokens
+            
+    if curr_chunk: chunks.append(" ".join(curr_chunk))
+    return chunks
+
+def score_chunks(chunks: list) -> float:
+    """Returns average (Prob(Positive) - Prob(Negative))"""
+    inputs = tokenizer(chunks, padding=True, truncation=True, return_tensors="pt")
+    with torch.no_grad():
+        outputs = model(**inputs)
+        probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
+    
+    # FinBERT classes: 0=Positive, 1=Negative, 2=Neutral
+    pos_score = probs[:, 0].mean().item()
+    neg_score = probs[:, 1].mean().item()
+    return pos_score - neg_score</code></pre>
+        <div class="explanation">
+            <strong>What this does:</strong> Transformer models crash or truncate text longer than 512 tokens. An earnings call is ~8,000 words. This algorithm carefully segments the transcript into complete sentences, groups them into safe 510-token chunks, processes them in parallel through FinBERT, and averages the net positivity score.
+        </div>
+    </div>
+
+    <!-- PHASE 6 & 7 -->
+    <div class="card">
+        <div class="phase-badge">Phase 6 & 7: Econometrics</div>
+        <h3>Controlled Regression (src/regression.py)</h3>
+        <pre><code>import statsmodels.formula.api as smf
+
+def run_regression(df: pd.DataFrame):
+    """Proves sentiment adds value beyond just beating EPS."""
+    # Standardize sentiment for interpretable coefficients
+    df['sentiment_z'] = (df['finbert_score'] - df['finbert_score'].mean()) / df['finbert_score'].std()
+    
+    formula = "car_0_1 ~ sentiment_z + eps_surprise + log_mcap + prior_return"
+    
+    # Fit OLS with robust standard errors clustered by ticker
+    model = smf.ols(formula, data=df).fit(cov_type='cluster', cov_kwds={'groups': df['ticker']})
+    print(model.summary())
+    return model</code></pre>
+        <div class="explanation">
+            <strong>What this does:</strong> A naive model might think a positive transcript causes the stock to rise, when in reality, the company just reported a massive EPS beat. This multivariate OLS regression isolates the "Sentiment Alpha" by controlling for the EPS Surprise, Market Cap, and prior momentum, applying Newey-West standard errors to ensure statistical significance (t-stat > 2.0).
+        </div>
+    </div>
+
+    <!-- PHASE 8 -->
+    <div class="card">
+        <div class="phase-badge">Phase 8: Trading Simulator</div>
+        <h3>Portfolio Backtest (src/backtest.py)</h3>
+        <pre><code>def simulate_strategy(df: pd.DataFrame, cost_bps: float = 10.0):
+    """Simulates a Long Q5 / Short Q1 portfolio with slippage."""
+    # Rank by sentiment each quarter
+    df['quintile'] = df.groupby('call_date')['finbert_score'].transform(
+        lambda x: pd.qcut(x, 5, labels=False, duplicates='drop')
+    )
+    
+    longs = df[df['quintile'] == 4]['car_0_1'].mean()
+    shorts = df[df['quintile'] == 0]['car_0_1'].mean()
+    
+    gross_return = longs - shorts
+    # Apply transaction costs (entry + exit for both legs = 4 * bps)
+    net_return = gross_return - (4 * (cost_bps / 10000))
+    
+    return net_return</code></pre>
+        <div class="explanation">
+            <strong>What this does:</strong> Transforms the academic signal into a market-neutral hedge fund strategy. It buys the top 20% most positive calls (Q5) and shorts the bottom 20% (Q1). Crucially, it subtracts basis points (bps) to simulate real-world slippage and brokerage fees, proving if the strategy survives live trading conditions.
+        </div>
+    </div>
+
+    <!-- PHASE 11 & 12 -->
+    <div class="card">
+        <div class="phase-badge">Phase 11 & 12: Deployment</div>
+        <h3>Interactive Dashboard (app.py)</h3>
+        <pre><code>import streamlit as st
+from clean import split_sections
+from sentiment_finbert import chunk_sentences, score_chunks
+
+st.title("Earnings Call Analyzer")
+transcript = st.text_area("Paste Transcript Here:")
+
+if st.button("Analyze Sentiment"):
+    sections = split_sections(transcript)
+    
+    st.subheader("Prepared Remarks Tone")
+    st.progress(score_chunks(chunk_sentences(sections['prepared_remarks'])))
+    
+    st.subheader("Q&A Tone (Spontaneous)")
+    st.progress(score_chunks(chunk_sentences(sections['qa_section'])))</code></pre>
+        <div class="explanation">
+            <strong>What this does:</strong> Wraps the complex NLP pipeline into an intuitive Streamlit UI. Institutional investors or users can simply paste a raw transcript and instantly see the divergence between what management scripted (Prepared Remarks) and how they handled pressure from analysts (Q&A).
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>

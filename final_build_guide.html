@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earnings Call Sentiment Analyzer | Ultimate Build Guide</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        serif: ['Electra', 'Georgia', 'Times New Roman', 'serif'],
+                        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    },
+                    colors: {
+                        background: '#000000',
+                        foreground: '#ffffff',
+                        card: '#0a0a0a',
+                        surface: '#111111',
+                        border: '#222222',
+                        mutedForeground: '#a0a0a0',
+                        primary: '#ff69b4',
+                        accent: '#ff00ff',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @font-face {
+            font-family: 'Electra';
+            src: local('Georgia');
+        }
+        
+        html, body {
+            background-color: #000000 !important;
+            color: #ffffff;
+            min-height: 100vh;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        ::selection {
+            background-color: #ff00ff;
+            color: #ffffff;
+        }
+
+        body {
+            font-family: theme('fontFamily.serif');
+            line-height: 1.6;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #000000; }
+        ::-webkit-scrollbar-thumb { background: #333333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #ff69b4; }
+
+        h1, h2, h3, h4, h5, h6 { font-weight: 600; letter-spacing: -0.025em; }
+        code { font-family: theme('fontFamily.mono'); font-size: 0.875em; }
+        
+        .sidebar { height: 100vh; position: fixed; top: 0; left: 0; width: 280px; overflow-y: auto; border-right: 1px solid theme('colors.border'); background-color: #000000; z-index: 50; }
+        .main-content { margin-left: 280px; padding: 3rem 4rem; max-width: 1200px; background-color: #000000; min-height: 100vh; }
+        
+        .card { 
+            background-color: theme('colors.card'); 
+            border: 1px solid theme('colors.border'); 
+            border-radius: 0.75rem; 
+            transition: all 0.25s ease; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.8); 
+        }
+        .card:hover { 
+            border-color: theme('colors.accent'); 
+            box-shadow: 0 0 25px rgba(255, 0, 255, 0.15); 
+        }
+        
+        .badge { 
+            display: inline-flex; 
+            align-items: center; 
+            border-radius: 9999px; 
+            background-color: rgba(255, 105, 180, 0.1); 
+            color: theme('colors.primary'); 
+            border: 1px solid theme('colors.primary'); 
+            padding: 0.25rem 0.75rem; 
+            font-size: 0.75rem; 
+            font-weight: 600; 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em;
+        }
+        .badge-fuchsia { 
+            background-color: rgba(255, 0, 255, 0.1); 
+            color: theme('colors.accent'); 
+            border-color: theme('colors.accent'); 
+        }
+
+        .code-box { 
+            background-color: #050505; 
+            border: 1px solid theme('colors.border'); 
+            border-radius: 0.5rem; 
+            overflow: hidden; 
+            margin-top: 1rem; 
+            margin-bottom: 1.5rem; 
+        }
+        .code-header {
+            background-color: #111111;
+            padding: 0.5rem 1rem;
+            border-bottom: 1px solid theme('colors.border');
+            font-family: theme('fontFamily.mono');
+            font-size: 0.75rem;
+            color: theme('colors.mutedForeground');
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .code-content {
+            padding: 1.25rem;
+            overflow-x: auto;
+            color: #d4d4d4;
+            font-family: theme('fontFamily.mono');
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        
+        .nav-link { display: block; padding: 0.5rem 1rem; color: theme('colors.mutedForeground'); text-decoration: none; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.9rem;}
+        .nav-link:hover { background-color: rgba(255, 105, 180, 0.1); color: theme('colors.primary'); border-left: 2px solid theme('colors.accent'); }
+        .nav-header { padding: 1rem 1rem 0.25rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #ffffff; }
+
+        @media (max-width: 1024px) {
+            .sidebar { display: none; }
+            .main-content { margin-left: 0; padding: 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar py-6">
+        <div class="px-6 mb-6 border-b border-border pb-4">
+            <h1 class="text-xl font-bold tracking-tight text-white">Earnings Analyzer</h1>
+            <p class="text-xs text-primary mt-1 uppercase tracking-wider font-semibold">Ultimate Build Guide</p>
+        </div>
+        
+        <nav class="space-y-1 px-2">
+            <div class="nav-header">Overview</div>
+            <a href="#resources" class="nav-link">Essential Resources</a>
+            
+            <div class="nav-header mt-4">Code Implementation</div>
+            <a href="#phase-0" class="nav-link">Phase 0: Environment Setup</a>
+            <a href="#phase-1-2" class="nav-link">Phase 1-2: Parsing & Cleaning</a>
+            <a href="#phase-3" class="nav-link">Phase 3: Event Study & CAR</a>
+            <a href="#phase-4" class="nav-link">Phase 4: FinBERT Chunking</a>
+            <a href="#phase-6-7" class="nav-link">Phase 6-7: Econometrics OLS</a>
+            <a href="#phase-8" class="nav-link">Phase 8: Trading Simulator</a>
+            <a href="#phase-11-12" class="nav-link">Phase 11-12: Streamlit Dashboard</a>
+
+            <div class="nav-header mt-4">Execution Plan</div>
+            <a href="#all-phases" class="nav-link">Complete 12-Phase Roadmap</a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content space-y-16">
+        
+        <!-- Header -->
+        <header class="space-y-4 border-b border-border pb-8">
+            <div class="flex items-center gap-3">
+                <span class="badge badge-fuchsia">Production Ready</span>
+                <span class="badge">Quantitative Pipeline</span>
+            </div>
+            <h1 class="text-4xl font-bold tracking-tight text-white">Earnings Call Sentiment Analyzer <span class="text-accent">Build Guide</span></h1>
+            <p class="text-lg text-mutedForeground max-w-3xl">
+                An exhaustive, production-grade implementation manual and code repository guide to construct the end-to-end pipeline from raw transcripts to trading backtest.
+            </p>
+        </header>
+
+        <!-- Resources Section -->
+        <section id="resources" class="card p-8 space-y-6">
+            <div class="flex items-center justify-between border-b border-border pb-4">
+                <h2 class="text-2xl font-bold text-white flex items-center gap-3">
+                    <span class="text-accent">❖</span> Essential Resources & Knowledge Base
+                </h2>
+                <span class="text-xs text-mutedForeground font-mono">Prerequisites</span>
+            </div>
+            <p class="text-mutedError text-sm text-mutedForeground">
+                Before writing code, verify access to the following core datasets, models, and academic foundations:
+            </p>
+            <ul class="space-y-3 text-sm text-mutedForeground list-disc list-inside">
+                <li><strong class="text-white">Transcripts Dataset:</strong> Hugging Face <code>kurry/sp500_earnings_transcripts</code> (~33k S&P 500 transcripts).</li>
+                <li><strong class="text-white">Financial NLP Model:</strong> Hugging Face <code>ProsusAI/finbert</code> (BERT fine-tuned on financial text for Positive/Neutral/Negative classification).</li>
+                <li><strong class="text-white">Dictionary Baseline:</strong> <a href="https://sraf.nd.edu/loughranmcdonald-master-dictionary/" target="_blank" class="text-primary hover:underline">Loughran-McDonald Master Dictionary</a> (Required to prevent false negatives on accounting terminology).</li>
+                <li><strong class="text-white">Market Data API:</strong> <code>yfinance</code> for daily adjusted close prices and benchmark returns.</li>
+                <li><strong class="text-white">Econometrics Theory:</strong> Event Study Methodology (MacKinlay 1997) for CAR estimation, and Newey-West HAC robust standard errors.</li>
+            </ul>
+        </section>
+
+        <!-- Phase 0 -->
+        <section id="phase-0" class="card p-8 space-y-6">
+            <div class="flex items-center justify-between border-b border-border pb-4">
+                <div>
+                    <span class="badge badge-fuchsia mb-2">Phase 0</span>
+                    <h2 class="text-2xl font-bold text-white">Environment Setup & Repository Foundation</h2>
+                </div>
+                <span class="text-xs text-mutedForeground font-mono">src/setup.sh</span>
+            </div>
+            <p class="text-sm text-mutedForeground">
+                Initializes an isolated virtual environment and installs core computational libraries. PyArrow handles fast Parquet I/O, Transformers/PyTorch run FinBERT inference, and Statsmodels handles robust OLS regressions.
+            </p>
+            <div class="code-box">
+                <div class="code-header">
+                    <span>Terminal / Bash Setup</span>
+                    <span>bash</span>
+                </div>
+                <div class="code-content">
+<pre><code>mkdir earnings-sentiment && cd earnings-sentiment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+pip install pandas numpy pyarrow matplotlib seaborn scipy statsmodels
+pip install transformers datasets torch yfinance jupyter streamlit</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Phase 1 & 2 -->
+        <section id="phase-1-2" class="card p-8 space-y-6">
+            <div class="flex items-center justify-between border-b border-border pb-4">
+                <div>
+                    <span class="badge badge-fuchsia mb-2">Phase 1 & 2</span>
+                    <h2 class="text-2xl font-bold text-white">Sourcing, Parsing & Cleaning Transcripts</h2>
+                </div>
+                <span class="text-xs text-mutedForeground font-mono">src/clean.py</span>
+            </div>
+            <p class="text-sm text-mutedForeground">
+                Isolates spontaneous Q&A from scripted management remarks and strips legal safe-harbor disclaimers that skew sentiment negative.
+            </p>
+            <div class="code-box">
+                <div class="code-header">
+                    <span>src/clean.py</span>
+                    <span>python</span>
+                </div>
+                <div class="code-content">
+<pre><code>import re
+import pandas as pd
+
+def split_sections(text: str) -> dict:
+    """Isolates spontaneous Q&A from scripted management remarks."""
+    patterns = [
+        r"(?:we will now|we'll now)\s+(?:open|begin)\s+(?:the\s+)?(?:lines?|floor)?\s*(?:for\s+)?(?:questions?|q&a)",
+        r"question[\s\-]and[\s\-]answer\s+session"
+    ]
+    
+    for pat in patterns:
+        match = re.search(pat, text, flags=re.IGNORECASE)
+        if match:
+            return {
+                "prepared_remarks": text[:match.start()].strip(),
+                "qa_section": text[match.end():].strip()
+            }
+    return {"prepared_remarks": text.strip(), "qa_section": ""}
+
+def remove_disclaimers(text: str) -> str:
+    """Removes legal safe-harbor statements that skew sentiment negatively."""
+    clean_text = re.sub(r"forward[\s\-]looking\s+statements?.*?(?:cautionary|reform\s+act).*?(?=\n\n|\Z)", "", text, flags=re.IGNORECASE | re.DOTALL)
+    return clean_text.strip()</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Phase 3 -->
+        <section id="phase-3" class="card p-8 space-y-6">
+            <div class="flex items-center justify-between border-b border-border pb-4">
+                <div>
+                    <span class="badge badge-fuchsia mb-2">Phase 3</span>
+                    <h2 class="text-2xl font-bold text-white">Event Study & Abnormal Returns</h2>
+                </div>
+                <span class="text-xs text-mutedForeground font-mono">src/event_study.py</span>
+            </div>
+            <p class="text-sm text-mutedForeground">
+                Prevents look-ahead bias by correctly aligning trading day zero for After-Market-Close (AMC) versus Before-Market-Open (BMO) earnings announcements.
+            </p>
+            <div class="code-box">
+                <div class="code-header">
+                    <span>src/event_study.py</span>
+                    <span>python</span>
+                </div>
+                <div class="code-content">
+<pre><code>import pandas as pd
+
+def get_event_day_zero(call_date: pd.Timestamp, call_timing: str, trading_days: list) -> pd.Timestamp:
+    """Aligns the market reaction to the correct trading day."""
+    if call_timing.upper() in ["AMC", "AFTER_CLOSE"]:
+        future_days = [d for d in trading_days if d > call_date]
+        return min(future_days)
+    else:  # BMO (Before Market Open)
+        valid_days = [d for d in trading_days if d >= call_date]
+        return min(valid_days)
+
+def compute_car(returns_df, alpha, beta, event_day):
+    """Computes Cumulative Abnormal Return [0, +1]"""
+    event_returns = returns_df.loc[event_day : event_day + pd.Timedelta(days=1)]
+    ar = event_returns['stock'] - (alpha + beta * event_returns['market'])
+    return ar.sum()</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Phase 4 -->
+        <section id="phase-4" class="card p-8 space-y-6">
+            <div class="flex items-center justify-between border-b border-border pb-4">
+                <div>
+                    <span class="badge badge-fuchsia mb-2">Phase 4</span>
+                    <h2 class="text-2xl font-bold text-white">Sentiment Engine & FinBERT Chunking</h2>
+                </div>
+                <span class="text-xs text-mutedForeground font-mono">src/sentiment_finbert.py</span>
+            </div>
+            <p class="text-sm text-mutedForeground">
+                Bypasses the 512-token transformer limit by intelligently chunking transcript sentences into safe 510-token segments before inference.
+            </p>
+            <div class="code-box">
+                <div class="code-header">
+                    <span>src/sentiment_finbert.py</span>
+                    <span>python</span>
+                </div>
+                <div class="code-content">
+<pre><code>import nltk
+import torch
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+tokenizer = AutoTokenizer.from_pretrained("ProsusAI/finbert")
+model = AutoModelForSequenceClassification.from_pretrained("ProsusAI/finbert")
+
+def chunk_sentences(text: str, max_tokens: int = 510) -> list:
+    """Packs sentences into 510-token chunks to bypass BERT limits."""
+    sentences = nltk.sent_tokenize(text)
+    chunks, curr_chunk, curr_tokens = [], [], 0
+    
+    for sent in sentences:
+        tokens = len(tokenizer.tokenize(sent))
+        if curr_tokens + tokens <= max_tokens:
+            curr_chunk.append(sent)
+            curr_tokens += tokens
+        else:
+            chunks.append(" ".join(curr_chunk))
+            curr_chunk, curr_tokens = [sent], tokens
+            
+    if curr_chunk: chunks.append(" ".join(curr_chunk))
+    return chunks
+
+def score_chunks(chunks: list) -> float:
+    """Returns average (Prob(Positive) - Prob(Negative))"""
+    inputs = tokenizer(chunks, padding=True, truncation=True, return_tensors="pt")
+    with torch.no_grad():
+        outputs = model(**inputs)
+        probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
+    
+    pos_score = probs[:, 0].mean().item()
+    neg_score = probs[:, 1].mean().item()
+    return pos_score - neg_score</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Phase 6 & 7 -->
+        <section id="phase-6-7" class="card p-8 space-y-6">
+            <div class="flex items-center justify-between border-b border-border pb-4">
+                <div>
+                    <span class="badge badge-fuchsia mb-2">Phase 6 & 7</span>
+                    <h2 class="text-2xl font-bold text-white">Controlled Regression & Econometrics</h2>
+                </div>
+                <span class="text-xs text-mutedForeground font-mono">src/regression.py</span>
+            </div>
+            <p class="text-sm text-mutedForeground">
+                Isolates true sentiment alpha via multivariate OLS regression controlling for EPS surprise, market cap, and prior momentum with clustered standard errors.
+            </p>
+            <div class="code-box">
+                <div class="code-header">
+                    <span>src/regression.py</span>
+                    <span>python</span>
+                </div>
+                <div class="code-content">
+<pre><code>import statsmodels.formula.api as smf
+import pandas as pd
+
+def run_regression(df: pd.DataFrame):
+    """Proves sentiment adds value beyond just beating EPS."""
+    df['sentiment_z'] = (df['finbert_score'] - df['finbert_score'].mean()) / df['finbert_score'].std()
+    
+    formula = "car_0_1 ~ sentiment_z + eps_surprise + log_mcap + prior_return"
+    
+    model = smf.ols(formula, data=df).fit(cov_type='cluster', cov_kwds={'groups': df['ticker']})
+    print(model.summary())
+    return model</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Phase 8 -->
+        <section id="phase-8" class="card p-8 space-y-6">
+            <div class="flex items-center justify-between border-b border-border pb-4">
+                <div>
+                    <span class="badge badge-fuchsia mb-2">Phase 8</span>
+                    <h2 class="text-2xl font-bold text-white">Trading Simulator & Portfolio Backtest</h2>
+                </div>
+                <span class="text-xs text-mutedForeground font-mono">src/backtest.py</span>
+            </div>
+            <p class="text-sm text-mutedForeground">
+                Simulates a market-neutral long Q5 / short Q1 hedge fund strategy factoring in realistic transaction costs and slippage in basis points.
+            </p>
+            <div class="code-box">
+                <div class="code-header">
+                    <span>src/backtest.py</span>
+                    <span>python</span>
+                </div>
+                <div class="code-content">
+<pre><code>import pandas as pd
+
+def simulate_strategy(df: pd.DataFrame, cost_bps: float = 10.0):
+    """Simulates a Long Q5 / Short Q1 portfolio with slippage."""
+    df['quintile'] = df.groupby('call_date')['finbert_score'].transform(
+        lambda x: pd.qcut(x, 5, labels=False, duplicates='drop')
+    )
+    
+    longs = df[df['quintile'] == 4]['car_0_1'].mean()
+    shorts = df[df['quintile'] == 0]['car_0_1'].mean()
+    
+    gross_return = longs - shorts
+    net_return = gross_return - (4 * (cost_bps / 10000))
+    
+    return net_return</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Phase 11 & 12 -->
+        <section id="phase-11-12" class="card p-8 space-y-6">
+            <div class="flex items-center justify-between border-b border-border pb-4">
+                <div>
+                    <span class="badge badge-fuchsia mb-2">Phase 11 & 12</span>
+                    <h2 class="text-2xl font-bold text-white">Interactive Deployment Dashboard</h2>
+                </div>
+                <span class="text-xs text-mutedForeground font-mono">app.py</span>
+            </div>
+            <p class="text-sm text-mutedForeground">
+                Wraps the complex NLP pipeline into an intuitive Streamlit UI for instant interactive transcript analysis and score visualization.
+            </p>
+            <div class="code-box">
+                <div class="code-header">
+                    <span>app.py</span>
+                    <span>python</span>
+                </div>
+                <div class="code-content">
+<pre><code>import streamlit as st
+from clean import split_sections
+from sentiment_finbert import chunk_sentences, score_chunks
+
+st.title("Earnings Call Analyzer")
+transcript = st.text_area("Paste Transcript Here:")
+
+if st.button("Analyze Sentiment"):
+    sections = split_sections(transcript)
+    
+    st.subheader("Prepared Remarks Tone")
+    st.progress(score_chunks(chunk_sentences(sections['prepared_remarks'])))
+    
+    st.subheader("Q&A Tone (Spontaneous)")
+    st.progress(score_chunks(chunk_sentences(sections['qa_section'])))</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Complete 12-Phase Roadmap Summary -->
+        <section id="all-phases" class="card p-8 space-y-6">
+            <div class="border-b border-border pb-4">
+                <span class="badge badge-fuchsia mb-2">Roadmap</span>
+                <h2 class="text-2xl font-bold text-white">Complete 12-Phase Execution Roadmap</h2>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-mutedForeground">
+                <div class="card p-5 space-y-2">
+                    <h3 class="text-white font-bold">Phases 0–2: Foundation & Cleaning</h3>
+                    <p>Setup virtual environment, download S&P 500 transcripts dataset, implement robust regex cleaning for prepared remarks vs Q&A sections.</p>
+                </div>
+                <div class="card p-5 space-y-2">
+                    <h3 class="text-white font-bold">Phases 3–5: Event Study & NLP Scoring</h3>
+                    <p>Align day zero returns to prevent look-ahead bias, compute CAR[0,+1], and run FinBERT with chunking alongside Loughran-McDonald baseline comparison.</p>
+                </div>
+                <div class="card p-5 space-y-2">
+                    <h3 class="text-white font-bold">Phases 6–9: Econometrics & Backtesting</h3>
+                    <p>Standardize sentiment z-scores, run HAC regressions controlling for earnings surprises, and execute quintile-based long/short backtests with friction.</p>
+                </div>
+                <div class="card p-5 space-y-2">
+                    <h3 class="text-white font-bold">Phases 10–12: Robustness & Deployment</h3>
+                    <p>Perform winsorization on extreme return outliers, compile comprehensive findings reports, and deploy the interactive Streamlit app interface.</p>
+                </div>
+            </div>
+        </section>
+
+        <footer class="border-t border-border pt-8 pb-12 text-center text-sm text-mutedForeground">
+            Earnings Call Sentiment Analyzer - <span class="text-accent">Ultimate Production Build Guide</span>
+        </footer>
+    </main>
+
+</body>
+</html>

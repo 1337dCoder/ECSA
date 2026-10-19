@@ -1,0 +1,2322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Earnings Call Sentiment Analyzer - Architecture & Implementation Blueprint</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0a0d14;
+      --bg-card: #111622;
+      --bg-card-hover: #171f30;
+      --bg-surface: #1a2234;
+      --border: #232f48;
+      --border-accent: #3b82f640;
+      --primary: #3b82f6;
+      --primary-glow: rgba(59, 130, 246, 0.25);
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-purple: #8b5cf6;
+      --accent-rose: #f43f5e;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --code-bg: #07090e;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --shadow-lg: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-dark);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-dim);
+    }
+
+    /* Sidebar Navigation */
+    aside.sidebar {
+      width: 290px;
+      background: #0d121c;
+      border-right: 1px solid var(--border);
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      overflow-y: auto;
+    }
+
+    .brand {
+      padding: 24px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, #2563eb, #06b6d4);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #fff;
+      font-family: 'Outfit', sans-serif;
+      box-shadow: 0 0 15px var(--primary-glow);
+    }
+
+    .brand-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: #fff;
+      line-height: 1.2;
+    }
+    .brand-subtitle {
+      font-size: 0.75rem;
+      color: var(--accent-cyan);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .progress-box {
+      margin: 16px 18px;
+      padding: 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+    }
+    .progress-title {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .progress-bar-bg {
+      height: 6px;
+      background: var(--bg-surface);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--primary), var(--accent-cyan));
+      transition: width 0.3s ease;
+    }
+
+    nav.nav-menu {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .nav-header {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      font-weight: 700;
+      padding: 12px 10px 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.88rem;
+      font-weight: 500;
+      border-radius: var(--radius-sm);
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .nav-item:hover {
+      color: #fff;
+      background: var(--bg-surface);
+      transform: translateX(3px);
+    }
+    .nav-item.active {
+      color: #fff;
+      background: #1e293b;
+      border-left: 3px solid var(--primary);
+      font-weight: 600;
+    }
+    .nav-badge {
+      margin-left: auto;
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 12px;
+      background: var(--bg-surface);
+      color: var(--accent-cyan);
+      font-family: 'Fira Code', monospace;
+    }
+
+    /* Main Content Area */
+    main.content-area {
+      margin-left: 290px;
+      flex: 1;
+      padding: 36px 48px 100px;
+      max-width: 1440px;
+    }
+
+    /* Header Banner */
+    .hero-banner {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.95)), 
+                  radial-gradient(ellipse at top right, rgba(59, 130, 246, 0.2), transparent 70%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      margin-bottom: 36px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid var(--border-accent);
+      color: var(--primary);
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .hero-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.3rem;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.2;
+      margin-bottom: 12px;
+      background: linear-gradient(120deg, #ffffff 40%, #93c5fd 90%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-desc {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 850px;
+      margin-bottom: 24px;
+    }
+    .hero-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+    .metric-card {
+      background: rgba(17, 22, 34, 0.7);
+      border: 1px solid var(--border);
+      padding: 14px 18px;
+      border-radius: var(--radius-md);
+      backdrop-filter: blur(8px);
+    }
+    .metric-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      font-family: 'Outfit', sans-serif;
+      color: #fff;
+    }
+    .metric-value.cyan { color: var(--accent-cyan); }
+    .metric-value.emerald { color: var(--accent-emerald); }
+    .metric-value.amber { color: var(--accent-amber); }
+    .metric-label {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Interactive Search & Filter Bar */
+    .filter-bar {
+      display: flex;
+      gap: 14px;
+      margin-bottom: 30px;
+      position: sticky;
+      top: 16px;
+      z-index: 90;
+      background: rgba(10, 13, 20, 0.85);
+      backdrop-filter: blur(16px);
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+    }
+    .search-input {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      color: #fff;
+      font-size: 0.9rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    .search-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 10px var(--primary-glow);
+    }
+    .filter-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 0.84rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .filter-btn:hover, .filter-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    /* Section Styles */
+    section {
+      margin-bottom: 50px;
+      scroll-margin-top: 80px;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-tag {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--bg-surface);
+      color: var(--accent-cyan);
+      font-family: 'Fira Code', monospace;
+      font-weight: 600;
+      border: 1px solid var(--border);
+    }
+
+    /* Architecture Diagram Grid */
+    .flow-diagram-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      margin-bottom: 30px;
+    }
+    .flow-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+      position: relative;
+    }
+    .flow-node {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      position: relative;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .flow-node:hover {
+      transform: translateY(-4px);
+      border-color: var(--primary);
+      box-shadow: 0 10px 25px -5px var(--primary-glow);
+    }
+    .flow-node-step {
+      font-size: 0.7rem;
+      font-family: 'Fira Code', monospace;
+      color: var(--accent-cyan);
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .flow-node-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+      font-family: 'Outfit', sans-serif;
+    }
+    .flow-node-desc {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .flow-node-badge {
+      display: inline-block;
+      margin-top: 10px;
+      font-size: 0.72rem;
+      font-family: 'Fira Code', monospace;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(59, 130, 246, 0.15);
+      color: #93c5fd;
+    }
+
+    /* File Structure Tree Explorer */
+    .tree-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+    }
+    .tree-header {
+      background: #0d121c;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .tree-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Fira Code', monospace;
+    }
+    .tree-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .tree-btn {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tree-btn:hover {
+      color: #fff;
+      background: var(--primary);
+    }
+
+    .tree-body {
+      padding: 16px 20px;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.88rem;
+    }
+    .tree-item {
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s ease;
+      margin: 2px 0;
+    }
+    .tree-item:hover {
+      background: var(--bg-surface);
+    }
+    .tree-item.folder {
+      color: #60a5fa;
+      font-weight: 600;
+    }
+    .tree-item.file {
+      color: #cbd5e1;
+    }
+    .tree-item .indent {
+      width: 20px;
+      height: 1px;
+      display: inline-block;
+    }
+    .tree-tag {
+      margin-left: auto;
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'Inter', sans-serif;
+    }
+    .tree-tag.core { background: rgba(59, 130, 246, 0.15); color: #93c5fd; }
+    .tree-tag.data { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; }
+    .tree-tag.report { background: rgba(245, 158, 11, 0.15); color: #fde68a; }
+    .tree-tag.test { background: rgba(139, 92, 246, 0.15); color: #d8b4fe; }
+
+    /* File Detail Cards */
+    .file-cards-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+      margin-top: 24px;
+    }
+    .file-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 22px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .file-card:hover {
+      border-color: var(--border-accent);
+      background: var(--bg-card-hover);
+    }
+    .file-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .file-path {
+      font-family: 'Fira Code', monospace;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #93c5fd;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .file-purpose {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+    }
+
+    /* Function Cards & Catalog */
+    .fn-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    .fn-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      position: relative;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .fn-card:hover {
+      border-color: var(--border-accent);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+    }
+    .fn-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .fn-name {
+      font-family: 'Fira Code', monospace;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .fn-module-badge {
+      font-size: 0.75rem;
+      background: #1e293b;
+      color: #94a3b8;
+      padding: 3px 9px;
+      border-radius: var(--radius-sm);
+      font-family: 'Fira Code', monospace;
+      border: 1px solid var(--border);
+    }
+
+    .fn-signature {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent-cyan);
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      font-family: 'Fira Code', monospace;
+      font-size: 0.88rem;
+      color: #e2e8f0;
+      margin-bottom: 16px;
+      overflow-x: auto;
+    }
+    .fn-desc {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      margin-bottom: 16px;
+    }
+
+    .fn-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .fn-meta-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+    }
+    .fn-meta-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      font-weight: 700;
+      color: var(--accent-amber);
+      margin-bottom: 6px;
+    }
+    .fn-meta-content {
+      font-size: 0.84rem;
+      color: #cbd5e1;
+      line-height: 1.4;
+    }
+
+    .code-block {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      position: relative;
+      margin-top: 12px;
+      overflow: hidden;
+    }
+    .code-block-header {
+      background: #0d121c;
+      padding: 6px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.74rem;
+      color: var(--text-dim);
+    }
+    .copy-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover {
+      color: #fff;
+      border-color: var(--primary);
+      background: var(--primary);
+    }
+    pre code {
+      display: block;
+      padding: 14px 16px;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.84rem;
+      color: #f8fafc;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    /* Implementation Phase Cards */
+    .phase-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+    .phase-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      position: relative;
+      transition: border-color 0.2s;
+    }
+    .phase-card:hover {
+      border-color: var(--border-accent);
+    }
+    .phase-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .phase-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .phase-number {
+      width: 40px;
+      height: 40px;
+      background: #1e293b;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--accent-cyan);
+    }
+    .phase-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .phase-timing {
+      font-size: 0.8rem;
+      padding: 4px 12px;
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--accent-emerald);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    .checklist-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 18px 0;
+    }
+    .check-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    .check-item:hover {
+      background: #1e2b42;
+    }
+    .check-item input[type="checkbox"] {
+      margin-top: 4px;
+      width: 17px;
+      height: 17px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+    .check-item-text {
+      font-size: 0.9rem;
+      color: var(--text-main);
+      flex: 1;
+    }
+    .check-item.completed .check-item-text {
+      text-decoration: line-through;
+      color: var(--text-dim);
+    }
+
+    .done-when-banner {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px dashed rgba(16, 185, 129, 0.35);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+      margin-top: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .done-when-title {
+      font-weight: 700;
+      font-size: 0.82rem;
+      color: var(--accent-emerald);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+    .done-when-text {
+      font-size: 0.88rem;
+      color: #a7f3d0;
+    }
+
+    /* Pitfall Matrix Table */
+    .pitfall-table-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-top: 20px;
+    }
+    table.custom-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    table.custom-table th {
+      background: #0d121c;
+      padding: 14px 18px;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+    }
+    table.custom-table td {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.88rem;
+      color: var(--text-main);
+      vertical-align: top;
+    }
+    table.custom-table tr:hover td {
+      background: var(--bg-surface);
+    }
+    .badge-risk {
+      background: rgba(244, 63, 94, 0.15);
+      color: #fda4af;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      display: inline-block;
+    }
+    .badge-mitigation {
+      background: rgba(16, 185, 129, 0.15);
+      color: #6ee7b7;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    /* Quick Action Floating Bar */
+    .floating-summary {
+      position: fixed;
+      bottom: 24px;
+      right: 32px;
+      background: rgba(17, 22, 34, 0.95);
+      border: 1px solid var(--border-accent);
+      padding: 12px 20px;
+      border-radius: 999px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      z-index: 120;
+    }
+    .floating-summary-text {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .floating-btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .floating-btn:hover {
+      background: #2563eb;
+      transform: scale(1.04);
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      aside.sidebar { display: none; }
+      main.content-area { margin-left: 0; padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">EC</div>
+      <div>
+        <div class="brand-title">Earnings Sentiment</div>
+        <div class="brand-subtitle">Project Architecture</div>
+      </div>
+    </div>
+
+    <div class="progress-box">
+      <div class="progress-title">
+        <span>Implementation Progress</span>
+        <span id="progress-percentage">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-bar"></div>
+      </div>
+      <div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 6px;" id="progress-count">
+        0 of 42 tasks completed
+      </div>
+    </div>
+
+    <nav class="nav-menu">
+      <div class="nav-header">Architecture</div>
+      <a class="nav-item active" href="#overview">
+        <span>Overview & Vision</span>
+      </a>
+      <a class="nav-item" href="#pipeline-flow">
+        <span>Dataflow Diagram</span>
+        <span class="nav-badge">8 Steps</span>
+      </a>
+      <a class="nav-item" href="#file-structure">
+        <span>File Tree Explorer</span>
+        <span class="nav-badge">14 Files</span>
+      </a>
+
+      <div class="nav-header">Engineering Spec</div>
+      <a class="nav-item" href="#function-catalog">
+        <span>Function Catalog</span>
+        <span class="nav-badge">24 Fns</span>
+      </a>
+      <a class="nav-item" href="#data-contracts">
+        <span>Parquet Schemas</span>
+      </a>
+
+      <div class="nav-header">Implementation Guide</div>
+      <a class="nav-item" href="#phase-guide">
+        <span>Phases 0 → 12 Guide</span>
+        <span class="nav-badge">5 Weeks</span>
+      </a>
+      <a class="nav-item" href="#pitfalls">
+        <span>Risk & Pitfall Matrix</span>
+        <span class="nav-badge">7 Gotchas</span>
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="content-area">
+
+    <!-- Hero Header -->
+    <div class="hero-banner" id="overview">
+      <div class="hero-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Quantitative NLP & Finance System
+      </div>
+      <h1 class="hero-title">Earnings Call Sentiment Analyzer</h1>
+      <p class="hero-desc">
+        End-to-end technical blueprint for parsing quarterly earnings call transcripts, isolating management prepared remarks from Q&A dynamics, computing domain-tailored sentiment metrics (FinBERT & Loughran-McDonald), measuring market abnormal returns (CAR), running controlled cross-sectional regressions, and backtesting trading signals.
+      </p>
+
+      <div class="hero-metrics">
+        <div class="metric-card">
+          <div class="metric-value cyan">FinBERT + LM</div>
+          <div class="metric-label">NLP Sentiment Models</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-value emerald">CAR [0, +1]</div>
+          <div class="metric-label">Primary Event Window</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-value amber">Newey-West</div>
+          <div class="metric-label">HAC Standard Errors</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-value">5 - 50 bps</div>
+          <div class="metric-label">Slippage & Cost Test</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter & Search Bar -->
+    <div class="filter-bar">
+      <input type="text" id="global-search" class="search-input" placeholder="Search functions (e.g., compute_car, chunk_text), files, or implementation steps...">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="functions">Functions</button>
+      <button class="filter-btn" data-filter="files">Files</button>
+      <button class="filter-btn" data-filter="phases">Phases</button>
+    </div>
+
+    <!-- Section 1: End-to-End Pipeline Dataflow -->
+    <section id="pipeline-flow">
+      <div class="section-header">
+        <div class="section-title">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          System Pipeline Architecture
+        </div>
+        <span class="section-tag">8 Sequential Stages</span>
+      </div>
+
+      <div class="flow-diagram-container">
+        <div class="flow-grid">
+          <div class="flow-node">
+            <div class="flow-node-step">Stage 1</div>
+            <div class="flow-node-title">Transcripts Ingestion</div>
+            <div class="flow-node-desc">Load HuggingFace S&P 500 transcripts, ticker metadata, timestamps, and BMO/AMC tags.</div>
+            <span class="flow-node-badge">data/raw/</span>
+          </div>
+
+          <div class="flow-node">
+            <div class="flow-node-step">Stage 2</div>
+            <div class="flow-node-title">Parsing & Section Split</div>
+            <div class="flow-node-desc">Strip safe-harbour disclaimers & operator chatter. Detect boundary between Prepared Remarks & Q&A.</div>
+            <span class="flow-node-badge">src/clean.py</span>
+          </div>
+
+          <div class="flow-node">
+            <div class="flow-node-step">Stage 3</div>
+            <div class="flow-node-title">FinBERT & LM Scoring</div>
+            <div class="flow-node-desc">Split into sentences, chunk to &le; 510 tokens, run batch GPU inference & Loughran-McDonald counting.</div>
+            <span class="flow-node-badge">src/sentiment_*.py</span>
+          </div>
+
+          <div class="flow-node">
+            <div class="flow-node-step">Stage 4</div>
+            <div class="flow-node-title">Market Event Study</div>
+            <div class="flow-node-desc">Day 0 alignment. Estimate market model over [-250, -30] days. Compute CAR[0,+1], CAR[0,+2].</div>
+            <span class="flow-node-badge">src/event_study.py</span>
+          </div>
+
+          <div class="flow-node">
+            <div class="flow-node-step">Stage 5</div>
+            <div class="flow-node-title">Human Hold-out Eval</div>
+            <div class="flow-node-desc">200 hand-labeled sentences. Macro F1, precision, recall, and confusion matrix validation.</div>
+            <span class="flow-node-badge">data/labels/</span>
+          </div>
+
+          <div class="flow-node">
+            <div class="flow-node-step">Stage 6</div>
+            <div class="flow-node-title">Controlled Regressions</div>
+            <div class="flow-node-desc">CAR ~ Sentiment + EPS_Surprise + log(MCap) + Prior_Return + Sector_FE with Newey-West standard errors.</div>
+            <span class="flow-node-badge">src/regression.py</span>
+          </div>
+
+          <div class="flow-node">
+            <div class="flow-node-step">Stage 7</div>
+            <div class="flow-node-title">Trading Backtest</div>
+            <div class="flow-node-desc">Long top quintile / Short bottom quintile. Realistic 1-2 day holding, transaction costs & Sharpe analysis.</div>
+            <span class="flow-node-badge">src/backtest.py</span>
+          </div>
+
+          <div class="flow-node">
+            <div class="flow-node-step">Stage 8</div>
+            <div class="flow-node-title">Out-of-Sample Freeze</div>
+            <div class="flow-node-desc">Train/Tune 2015-2020. Frozen test run on 2021-2025. Honest write-up & Streamlit web UI.</div>
+            <span class="flow-node-badge">reports/ & app.py</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Complete Project File Structure -->
+    <section id="file-structure">
+      <div class="section-header">
+        <div class="section-title">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          Complete Project File Structure
+        </div>
+        <span class="section-tag">Interactive Directory Tree</span>
+      </div>
+
+      <div class="tree-container">
+        <div class="tree-header">
+          <div class="tree-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+            earnings-sentiment/
+          </div>
+          <div class="tree-actions">
+            <button class="tree-btn" onclick="toggleAllTrees(true)">Expand All</button>
+            <button class="tree-btn" onclick="toggleAllTrees(false)">Collapse All</button>
+          </div>
+        </div>
+
+        <div class="tree-body">
+          <div class="tree-item folder">
+            <span>📁 data/</span>
+            <span class="tree-tag data">Storage Directory</span>
+          </div>
+          <div class="tree-item folder">
+            <span class="indent"></span><span>📁 raw/</span>
+            <span class="tree-tag data">Immutable Raw Inputs</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span class="indent"></span><span>📄 transcripts_raw.parquet</span>
+            <span class="tree-tag data">HF sp500 transcripts</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span class="indent"></span><span>📄 prices_sp500_daily.parquet</span>
+            <span class="tree-tag data">Adj Close from yfinance</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span class="indent"></span><span>📄 eps_surprises.parquet</span>
+            <span class="tree-tag data">Actual vs Consensus EPS</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span class="indent"></span><span>📄 lm_master_dictionary.csv</span>
+            <span class="tree-tag data">Loughran-McDonald 2023</span>
+          </div>
+
+          <div class="tree-item folder">
+            <span class="indent"></span><span>📁 processed/</span>
+            <span class="tree-tag data">Clean Pipeline Intermediates</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span class="indent"></span><span>📄 calls_clean.parquet</span>
+            <span class="tree-tag core">Parsed Prepared & Q&A</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span class="indent"></span><span>📄 scores_lm.parquet</span>
+            <span class="tree-tag core">Dictionary Sentiment</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span class="indent"></span><span>📄 scores_finbert.parquet</span>
+            <span class="tree-tag core">FinBERT Chunk Scores</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span class="indent"></span><span>📄 car.parquet</span>
+            <span class="tree-tag core">Event Study Abnormal Returns</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span class="indent"></span><span>📄 dataset_final.parquet</span>
+            <span class="tree-tag core">Master Regression Table</span>
+          </div>
+
+          <div class="tree-item folder">
+            <span class="indent"></span><span>📁 labels/</span>
+            <span class="tree-tag data">Hand Validation Set</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span class="indent"></span><span>📄 sample_to_label.csv</span>
+            <span class="tree-tag test">200 Stratified Sentences</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span class="indent"></span><span>📄 hand_labels_annotated.csv</span>
+            <span class="tree-tag test">Ground Truth Groundwork</span>
+          </div>
+
+          <div class="tree-item folder">
+            <span>📁 src/</span>
+            <span class="tree-tag core">Core Python Package</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>🐍 __init__.py</span>
+            <span class="tree-tag core">Package export</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>🐍 config.py</span>
+            <span class="tree-tag core">Hyperparams & Paths</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>🐍 clean.py</span>
+            <span class="tree-tag core">Transcript Preprocessing</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>🐍 sentiment_lm.py</span>
+            <span class="tree-tag core">Dictionary Baseline Engine</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>🐍 sentiment_finbert.py</span>
+            <span class="tree-tag core">FinBERT Chunking & Infer</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>🐍 event_study.py</span>
+            <span class="tree-tag core">Market Model & CAR</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>🐍 regression.py</span>
+            <span class="tree-tag core">Econometric OLS & Controls</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>🐍 backtest.py</span>
+            <span class="tree-tag core">Long/Short Portfolio Simulator</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>🐍 utils.py</span>
+            <span class="tree-tag core">Date, Stats, Helpers</span>
+          </div>
+
+          <div class="tree-item folder">
+            <span>📁 notebooks/</span>
+            <span class="tree-tag report">Exploration</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>📓 01_data_exploration.ipynb</span>
+            <span class="tree-tag report">Distributions & Missing</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>📓 02_sentiment_vs_car.ipynb</span>
+            <span class="tree-tag report">Quintile Visualizations</span>
+          </div>
+
+          <div class="tree-item folder">
+            <span>📁 reports/</span>
+            <span class="tree-tag report">Documentation</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>📁 figures/</span>
+            <span class="tree-tag report">PNG/PDF High-Res Plots</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>📝 validation.md</span>
+            <span class="tree-tag report">F1 & Confusion Matrix</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>📝 regression_results.md</span>
+            <span class="tree-tag report">t-stats & R-squared</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>📝 spec_frozen.md</span>
+            <span class="tree-tag report">Pre-registered OOS Params</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>📝 final_report.md</span>
+            <span class="tree-tag report">4-Page Executive Summary</span>
+          </div>
+
+          <div class="tree-item folder">
+            <span>📁 tests/</span>
+            <span class="tree-tag test">Unit & Integration Tests</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>🐍 test_clean.py</span>
+            <span class="tree-tag test">Q&A split & disclaimers</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>🐍 test_sentiment.py</span>
+            <span class="tree-tag test">Chunking & score bounds</span>
+          </div>
+          <div class="tree-item file">
+            <span class="indent"></span><span>🐍 test_event_study.py</span>
+            <span class="tree-tag test">CAR window & day 0 logic</span>
+          </div>
+
+          <div class="tree-item file">
+            <span>🐍 app.py</span>
+            <span class="tree-tag core">Streamlit Interactive Demo</span>
+          </div>
+          <div class="tree-item file">
+            <span>📄 requirements.txt</span>
+            <span class="tree-tag core">Pinned Python Dependencies</span>
+          </div>
+          <div class="tree-item file">
+            <span>📄 .gitignore</span>
+            <span class="tree-tag core">Data, checkpoints, .venv</span>
+          </div>
+          <div class="tree-item file">
+            <span>📖 README.md</span>
+            <span class="tree-tag report">Project Setup & Quickstart</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Exhaustive Function Catalog -->
+    <section id="function-catalog">
+      <div class="section-header">
+        <div class="section-title">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Complete Function Specifications & Implementation Blueprint
+        </div>
+        <span class="section-tag">All Core Modules Documented</span>
+      </div>
+
+      <div class="fn-grid">
+
+        <!-- MODULE: src/clean.py -->
+        <!-- Fn 1: split_sections -->
+        <div class="fn-card" data-category="clean">
+          <div class="fn-header">
+            <div class="fn-name">
+              <span style="color:var(--accent-emerald)">def</span> split_sections(text: str) -> dict[str, str]
+            </div>
+            <span class="fn-module-badge">src/clean.py</span>
+          </div>
+          <div class="fn-signature">
+            split_sections(text: str) -> {"prepared_remarks": str, "qa_section": str, "split_found": bool}
+          </div>
+          <p class="fn-desc">
+            Splits an earnings call transcript into Prepared Remarks (formal presentation by executives) and Q&A (spontaneous dialogue with equity analysts). Uses a regex cascade of 8 phrase patterns (e.g., <em>"open the floor for questions"</em>, <em>"operator: we are ready for Q&A"</em>, <em>"question-and-answer session"</em>). If no marker is matched, marks <code>split_found=False</code> and leaves Q&A empty.
+          </p>
+          <div class="fn-meta-grid">
+            <div class="fn-meta-box">
+              <div class="fn-meta-title">Edge Cases Handled</div>
+              <div class="fn-meta-content">Missing markers, multiple false positives in body text, case insensitivity, short calls (<500 words).</div>
+            </div>
+            <div class="fn-meta-box">
+              <div class="fn-meta-title">Data Output</div>
+              <div class="fn-meta-content">Dictionary with cleaned sub-strings without operator boilerplate.</div>
+            </div>
+          </div>
+          <div class="code-block">
+            <div class="code-block-header">
+              <span>Implementation Blueprint</span>
+              <button class="copy-btn" onclick="copySnippet(this)">Copy</button>
+            </div>
+            <pre><code>import re
+
+QA_PATTERNS = [
+    r"(?:we will now|we'll now|we are now ready to)\s+(?:open|begin|take)\s+(?:the\s+)?(?:lines?|floor)?\s*(?:for\s+)?(?:questions?|q&a)",
+    r"question[\s\-]and[\s\-]answer\s+session",
+    r"(?:operator|coordinator):\s*(?:our first question|first question comes from|we will begin the q&a)",
+    r"we are now opening the call for questions"
+]
+
+def split_sections(text: str) -> dict:
+    for pat in QA_PATTERNS:
+        match = re.search(pat, text, flags=re.IGNORECASE)
+        if match:
+            return {
+                "prepared_remarks": text[:match.start()].strip(),
+                "qa_section": text[match.end():].strip(),
+                "split_found": True
+            }
+    return {"prepared_remarks": text.strip(), "qa_section": "", "split_found": False}</code></pre>
+          </div>
+        </div>
+
+        <!-- Fn 2: remove_disclaimers -->
+        <div class="fn-card" data-category="clean">
+          <div class="fn-header">
+            <div class="fn-name">
+              <span style="color:var(--accent-emerald)">def</span> remove_disclaimers(text: str) -> str
+            </div>
+            <span class="fn-module-badge">src/clean.py</span>
+          </div>
+          <div class="fn-signature">
+            remove_disclaimers(text: str) -> str
+          </div>
+          <p class="fn-desc">
+            Strips boilerplate safe-harbour statements, Private Securities Litigation Reform Act disclosures, forward-looking statements disclaimers, and operator introductory instructions that skew vocabulary frequency toward synthetic legal risk.
+          </p>
+          <div class="code-block">
+            <div class="code-block-header">
+              <span>Implementation Blueprint</span>
+              <button class="copy-btn" onclick="copySnippet(this)">Copy</button>
+            </div>
+            <pre><code>DISCLAIMER_PATTERNS = [
+    r"safe\s+harbor\s+statement.*?(?=\n\n|\Z)",
+    r"forward[\s\-]looking\s+statements?.*?(?:cautionary|reform\s+act).*?(?=\n\n|\Z)",
+    r"at\s+this\s+time,\s+all\s+participants\s+are\s+in\s+a\s+listen[\s\-]only\s+mode.*?(?=\n\n|\Z)",
+    r"please\s+note\s+(?:that\s+)?this\s+conference\s+is\s+being\s+recorded.*?(?=\n\n|\Z)"
+]
+
+def remove_disclaimers(text: str) -> str:
+    cleaned = text
+    for p in DISCLAIMER_PATTERNS:
+        cleaned = re.sub(p, "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    return re.sub(r"\n\s*\n+", "\n\n", cleaned).strip()</code></pre>
+          </div>
+        </div>
+
+        <!-- Fn 3: process_transcripts_pipeline -->
+        <div class="fn-card" data-category="clean">
+          <div class="fn-header">
+            <div class="fn-name">
+              <span style="color:var(--accent-emerald)">def</span> clean_dataset(raw_df: pd.DataFrame) -> pd.DataFrame
+            </div>
+            <span class="fn-module-badge">src/clean.py</span>
+          </div>
+          <div class="fn-signature">
+            clean_dataset(raw_df: pd.DataFrame, min_word_count: int = 500) -> pd.DataFrame
+          </div>
+          <p class="fn-desc">
+            Executes full cleaning workflow on raw transcripts dataframe: verifies required columns (<code>ticker</code>, <code>call_date</code>, <code>call_timing</code>, <code>text</code>), strips disclaimers, splits prepared/QA, flags short or unparseable calls, drops duplicate calls for same ticker/date, and outputs clean parquet with drops audit log.
+          </p>
+        </div>
+
+        <!-- MODULE: src/sentiment_lm.py -->
+        <!-- Fn 4: load_loughran_mcdonald -->
+        <div class="fn-card" data-category="sentiment">
+          <div class="fn-header">
+            <div class="fn-name">
+              <span style="color:var(--accent-emerald)">def</span> load_lm_dictionary(dict_path: str) -> tuple[set, set]
+            </div>
+            <span class="fn-module-badge">src/sentiment_lm.py</span>
+          </div>
+          <div class="fn-signature">
+            load_lm_dictionary(dict_path: str) -> tuple[set[str], set[str]]
+          </div>
+          <p class="fn-desc">
+            Reads the official Loughran-McDonald Master Dictionary (CSV/Excel). Extracts lowercased sets of positive words (e.g., <em>achieve, profitable, robust, exceptional</em>) and negative words (e.g., <em>loss, impairment, default, adverse, downturn</em>). Note that general words like "liability" or "tax" are not treated as negative under LM specifications.
+          </p>
+          <div class="code-block">
+            <div class="code-block-header">
+              <span>Implementation Blueprint</span>
+              <button class="copy-btn" onclick="copySnippet(this)">Copy</button>
+            </div>
+            <pre><code>import pandas as pd
+
+def load_lm_dictionary(dict_path: str) -> tuple[set, set]:
+    df = pd.read_csv(dict_path)
+    pos_words = set(df[df["Positive"] > 0]["Word"].str.lower())
+    neg_words = set(df[df["Negative"] > 0]["Word"].str.lower())
+    return pos_words, neg_words</code></pre>
+          </div>
+        </div>
+
+        <!-- Fn 5: score_text_lm -->
+        <div class="fn-card" data-category="sentiment">
+          <div class="fn-header">
+            <div class="fn-name">
+              <span style="color:var(--accent-emerald)">def</span> compute_lm_sentiment(text: str, pos_words: set, neg_words: set) -> dict
+            </div>
+            <span class="fn-module-badge">src/sentiment_lm.py</span>
+          </div>
+          <div class="fn-signature">
+            compute_lm_sentiment(text: str, pos_words: set, neg_words: set) -> {"lm_score": float, "pos_count": int, "neg_count": int, "total_words": int}
+          </div>
+          <p class="fn-desc">
+            Tokenizes input text with word boundaries <code>[a-zA-Z]+</code>. Computes standard academic sentiment formula:
+            $$\text{LM Score} = \frac{N_{\text{positive}} - N_{\text{negative}}}{N_{\text{total\_words}}}$$
+            Returns 0.0 if total words is 0. Computed separately for Full Text, Prepared Remarks, and Q&A.
+          </p>
+        </div>
+
+        <!-- MODULE: src/sentiment_finbert.py -->
+        <!-- Fn 6: chunk_sentences -->
+        <div class="fn-card" data-category="sentiment">
+          <div class="fn-header">
+            <div class="fn-name">
+              <span style="color:var(--accent-emerald)">def</span> chunk_sentences(text: str, tokenizer, max_tokens: int = 510) -> list[str]
+            </div>
+            <span class="fn-module-badge">src/sentiment_finbert.py</span>
+          </div>
+          <div class="fn-signature">
+            chunk_sentences(text: str, tokenizer, max_tokens: int = 510) -> list[str]
+          </div>
+          <p class="fn-desc">
+            Solves the transformer 512-token limit without truncating. First segments text into sentences using NLTK <code>sent_tokenize</code>. Then greedily packs complete sentences into chunks until adding the next sentence would exceed <code>max_tokens</code> (leaving 2 tokens for <code>[CLS]</code> and <code>[SEP]</code>). Never breaks a sentence midway.
+          </p>
+          <div class="code-block">
+            <div class="code-block-header">
+              <span>Implementation Blueprint</span>
+              <button class="copy-btn" onclick="copySnippet(this)">Copy</button>
+            </div>
+            <pre><code>import nltk
+
+def chunk_sentences(text: str, tokenizer, max_tokens: int = 510) -> list[str]:
+    sentences = nltk.sent_tokenize(text)
+    chunks, current_chunk, current_tokens = [], [], 0
+    
+    for sent in sentences:
+        sent_tokens = len(tokenizer.tokenize(sent))
+        if sent_tokens > max_tokens:
+            # Handle exceptionally long run-on sentence
+            words = sent.split()
+            sent = " ".join(words[:int(max_tokens * 0.75)])
+            sent_tokens = len(tokenizer.tokenize(sent))
+            
+        if current_tokens + sent_tokens <= max_tokens:
+            current_chunk.append(sent)
+            current_tokens += sent_tokens
+        else:
+            if current_chunk:
+                chunks.append(" ".join(current_chunk))
+            current_chunk = [sent]
+            current_tokens = sent_tokens
+            
+    if current_chunk:
+        chunks.append(" ".join(current_chunk))
+    return chunks</code></pre>
+          </div>
+        </div>
+
+        <!-- Fn 7: score_call_finbert -->
+        <div class="fn-card" data-category="sentiment">
+          <div class="fn-header">
+            <div class="fn-name">
+              <span style="color:var(--accent-emerald)">def</span> score_call_finbert(chunks: list[str], model, tokenizer, device: str) -> dict
+            </div>
+            <span class="fn-module-badge">src/sentiment_finbert.py</span>
+          </div>
+          <div class="fn-signature">
+            score_call_finbert(chunks: list[str], model, tokenizer, device: str, batch_size: int = 16) -> dict
+          </div>
+          <p class="fn-desc">
+            Runs batch inference across chunks using PyTorch with <code>torch.no_grad()</code> and mixed precision (FP16/BF16) on GPU if available. Computes softmax probabilities over classes: Positive, Neutral, Negative.
+            Aggregates to call level via:
+            $$\text{finbert\_score} = \frac{1}{K}\sum_{k=1}^K [P(\text{positive})_k - P(\text{negative})_k]$$
+            $$\text{share\_negative} = \frac{1}{K}\sum_{k=1}^K \mathbb{I}\{\text{argmax}_c P(c)_k = \text{negative}\}$$
+          </p>
+        </div>
+
+        <!-- MODULE: src/event_study.py -->
+        <!-- Fn 8: align_event_date -->
+        <div class="fn-card" data-category="event">
+          <div class="fn-header">
+            <div class="fn-name">
+              <span style="color:var(--accent-emerald)">def</span> get_event_day_zero(call_date: pd.Timestamp, call_timing: str, trading_calendar: list) -> pd.Timestamp
+            </div>
+            <span class="fn-module-badge">src/event_study.py</span>
+          </div>
+          <div class="fn-signature">
+            get_event_day_zero(call_date: pd.Timestamp, call_timing: str, trading_calendar: list) -> pd.Timestamp
+          </div>
+          <p class="fn-desc">
+            Crucial timing alignment function preventing look-ahead and unobserved pricing errors:
+            <ul>
+              <li><strong>Before Market Open (BMO)</strong>: Price reaction occurs during trading hours of the same day &rarr; Day 0 is <code>call_date</code> (or next trading day if holiday/weekend).</li>
+              <li><strong>After Market Close (AMC)</strong>: Market was already closed &rarr; Day 0 is the <em>immediate next trading day</em>.</li>
+            </ul>
+          </p>
+          <div class="code-block">
+            <div class="code-block-header">
+              <span>Implementation Blueprint</span>
+              <button class="copy-btn" onclick="copySnippet(this)">Copy</button>
+            </div>
+            <pre><code>def get_event_day_zero(call_date, call_timing: str, trading_days: list) -> pd.Timestamp:
+    timing = str(call_timing).strip().upper()
+    trading_set = set(trading_days)
+    
+    # If AMC or unspecified, reaction is next trading day
+    if timing in ["AMC", "AFTER_CLOSE", "POST"]:
+        future_days = [d for d in trading_days if d > call_date]
+        return min(future_days)
+    else:  # BMO or during trading hours
+        valid_days = [d for d in trading_days if d >= call_date]
+        return min(valid_days)</code></pre>
+          </div>
+        </div>
+
+        <!-- Fn 9: estimate_market_model -->
+        <div class="fn-card" data-category="event">
+          <div class="fn-header">
+            <div class="fn-name">
+              <span style="color:var(--accent-emerald)">def</span> estimate_market_model(stock_returns: pd.Series, market_returns: pd.Series) -> tuple[float, float]
+            </div>
+            <span class="fn-module-badge">src/event_study.py</span>
+          </div>
+          <div class="fn-signature">
+            estimate_market_model(stock_returns: pd.Series, market_returns: pd.Series, min_obs: int = 120) -> (alpha, beta)
+          </div>
+          <p class="fn-desc">
+            Fits Ordinary Least Squares (OLS) market model $R_{it} = \alpha_i + \beta_i R_{mt} + \varepsilon_{it}$ over estimation window $[-250, -30]$ trading days relative to Day 0. Enforces minimum 120 valid trading days to ensure robust beta estimation. Drops ticker if data is insufficient.
+          </p>
+        </div>
+
+        <!-- Fn 10: compute_car -->
+        <div class="fn-card" data-category="event">
+          <div class="fn-header">
+            <div class="fn-name">
+              <span style="color:var(--accent-emerald)">def</span> compute_car(returns_df: pd.DataFrame, alpha: float, beta: float, event_day: pd.Timestamp, window: tuple[int, int]) -> float
+            </div>
+            <span class="fn-module-badge">src/event_study.py</span>
+          </div>
+          <div class="fn-signature">
+            compute_car(returns_df: pd.DataFrame, alpha: float, beta: float, event_day: pd.Timestamp, window: tuple[int, int] = (0, 1)) -> float
+          </div>
+          <p class="fn-desc">
+            Computes Cumulative Abnormal Return (CAR) across event window $[t_1, t_2]$:
+            $$AR_{it} = R_{it} - (\hat{\alpha}_i + \hat{\beta}_i R_{mt})$$
+            $$CAR_i[t_1, t_2] = \sum_{t=t_1}^{t_2} AR_{it}$$
+            Standard windows calculated: $[0, +1]$, $[0, +2]$, and pre-event leakage window $[-1, +1]$.
+          </p>
+        </div>
+
+        <!-- MODULE: src/regression.py -->
+        <!-- Fn 11: run_controlled_regression -->
+        <div class="fn-card" data-category="stats">
+          <div class="fn-header">
+            <div class="fn-name">
+              <span style="color:var(--accent-emerald)">def</span> run_controlled_ols(df: pd.DataFrame, y_col: str, sentiment_col: str) -> sm.regression.linear_model.RegressionResults
+            </div>
+            <span class="fn-module-badge">src/regression.py</span>
+          </div>
+          <div class="fn-signature">
+            run_controlled_ols(df: pd.DataFrame, y_col: str = "car_0_1", sentiment_col: str = "finbert_zscore", cluster_col: str = "ticker")
+          </div>
+          <p class="fn-desc">
+            Estimates multi-factor cross-sectional regression with statsmodels:
+            $$CAR_i = \gamma_0 + \gamma_1 \text{Sentiment}_i + \gamma_2 \text{EPS\_Surprise}_i + \gamma_3 \log(\text{MCap}_i) + \gamma_4 \text{PriorReturn}_i + \sum_s \delta_s \text{Sector}_{is} + \varepsilon_i$$
+            Applies heteroskedasticity and autocorrelation robust standard errors (HAC / Newey-West) clustered by firm or calendar date. Outputs coefficient, t-stat, p-value, and $R^2$.
+          </p>
+        </div>
+
+        <!-- Fn 12: compute_spearman_rank -->
+        <div class="fn-card" data-category="stats">
+          <div class="fn-header">
+            <div class="fn-name">
+              <span style="color:var(--accent-emerald)">def</span> spearman_rank_test(df: pd.DataFrame, sentiment_col: str, car_col: str) -> tuple[float, float]
+            </div>
+            <span class="fn-module-badge">src/regression.py</span>
+          </div>
+          <div class="fn-signature">
+            spearman_rank_test(df: pd.DataFrame, sentiment_col: str, car_col: str) -> (rho, p_value)
+          </div>
+          <p class="fn-desc">
+            Non-parametric sanity check measuring monotonic association between sentiment score and CAR, robust to extreme outliers and fat-tailed distribution of price jumps.
+          </p>
+        </div>
+
+        <!-- MODULE: src/backtest.py -->
+        <!-- Fn 13: simulate_long_short_strategy -->
+        <div class="fn-card" data-category="backtest">
+          <div class="fn-header">
+            <div class="fn-name">
+              <span style="color:var(--accent-emerald)">def</span> simulate_strategy(df: pd.DataFrame, holding_days: int = 1, cost_bps: float = 10.0, quintiles: bool = True) -> pd.DataFrame
+            </div>
+            <span class="fn-module-badge">src/backtest.py</span>
+          </div>
+          <div class="fn-signature">
+            simulate_strategy(df: pd.DataFrame, holding_days: int = 1, cost_bps: float = 10.0, n_buckets: int = 5) -> pd.DataFrame
+          </div>
+          <p class="fn-desc">
+            Simulates market-neutral long/short portfolio:
+            <ul>
+              <li><strong>Long Top Bucket (Q5)</strong>: Calls with highest positive sentiment scores.</li>
+              <li><strong>Short Bottom Bucket (Q1)</strong>: Calls with lowest/most negative sentiment scores.</li>
+              <li><strong>Execution</strong>: Entered at close before reaction (or open after call) with strict zero look-ahead.</li>
+              <li><strong>Friction</strong>: Applies customizable transaction cost deduction (e.g. 10 bps per side = 20 bps round trip).</li>
+            </ul>
+          </p>
+        </div>
+
+        <!-- Fn 14: compute_performance_metrics -->
+        <div class="fn-card" data-category="backtest">
+          <div class="fn-header">
+            <div class="fn-name">
+              <span style="color:var(--accent-emerald)">def</span> compute_performance_metrics(returns: pd.Series, benchmark_returns: pd.Series = None) -> dict
+            </div>
+            <span class="fn-module-badge">src/backtest.py</span>
+          </div>
+          <div class="fn-signature">
+            compute_performance_metrics(returns: pd.Series, benchmark_returns: pd.Series = None) -> dict
+          </div>
+          <p class="fn-desc">
+            Computes key hedge-fund grade metrics: Annualized Return, Annualized Volatility, Sharpe Ratio ($r_f=0$), Maximum Drawdown, Calmar Ratio, Win/Hit Rate, and Portfolio Turnover.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Section 4: Data Contracts & Parquet Schemas -->
+    <section id="data-contracts">
+      <div class="section-header">
+        <div class="section-title">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          Processed Data Contracts (Parquet Schemas)
+        </div>
+        <span class="section-tag">Zero Schema Drift</span>
+      </div>
+
+      <div class="pitfall-table-wrap">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Table Name</th>
+              <th>Primary Key</th>
+              <th>Key Fields & Types</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>calls_clean.parquet</code></td>
+              <td><code>(ticker, call_date)</code></td>
+              <td>
+                <code>ticker: str</code>, <code>call_date: date</code>, <code>call_timing: str</code> (BMO/AMC), <code>prepared_text: str</code>, <code>qa_text: str</code>, <code>word_count: int</code>
+              </td>
+              <td>Cleaned text partitioned into formal presentation and Q&A blocks.</td>
+            </tr>
+            <tr>
+              <td><code>scores_lm.parquet</code></td>
+              <td><code>(ticker, call_date)</code></td>
+              <td>
+                <code>lm_full: float</code>, <code>lm_prepared: float</code>, <code>lm_qa: float</code>, <code>pos_count: int</code>, <code>neg_count: int</code>
+              </td>
+              <td>Loughran-McDonald word dictionary normalized score table.</td>
+            </tr>
+            <tr>
+              <td><code>scores_finbert.parquet</code></td>
+              <td><code>(ticker, call_date)</code></td>
+              <td>
+                <code>finbert_full: float</code>, <code>finbert_prepared: float</code>, <code>finbert_qa: float</code>, <code>share_neg: float</code>, <code>chunk_count: int</code>
+              </td>
+              <td>Aggregated FinBERT transformer probabilities across text chunks.</td>
+            </tr>
+            <tr>
+              <td><code>car.parquet</code></td>
+              <td><code>(ticker, call_date)</code></td>
+              <td>
+                <code>event_day_0: date</code>, <code>beta: float</code>, <code>alpha: float</code>, <code>car_0_1: float</code>, <code>car_0_2: float</code>, <code>car_neg1_1: float</code>
+              </td>
+              <td>Abnormal returns from event study market model.</td>
+            </tr>
+            <tr>
+              <td><code>dataset_final.parquet</code></td>
+              <td><code>(ticker, call_date)</code></td>
+              <td>
+                Joins all above + <code>eps_surprise: float</code>, <code>log_mcap: float</code>, <code>prior_return_20d: float</code>, <code>sector: str</code>
+              </td>
+              <td>Unified analysis dataset ready for regressions and backtests.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 5: Step-by-Step Implementation Guide (Phases 0-12) -->
+    <section id="phase-guide">
+      <div class="section-header">
+        <div class="section-title">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Step-by-Step Implementation Guide (Phases 0 &rarr; 12)
+        </div>
+        <span class="section-tag">Interactive Progress Tracking</span>
+      </div>
+
+      <div class="phase-timeline">
+
+        <!-- Phase 0 -->
+        <div class="phase-card" id="phase-0">
+          <div class="phase-top">
+            <div class="phase-title-wrap">
+              <div class="phase-number">0</div>
+              <div>
+                <div class="phase-title">Phase 0: Environment & Repository Foundation</div>
+                <div style="font-size: 0.84rem; color: var(--text-muted);">Initialize Git repo, Python virtualenv, and verify FinBERT inference.</div>
+              </div>
+            </div>
+            <span class="phase-timing">Day 1</span>
+          </div>
+
+          <div class="checklist-group">
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Create folder structure (<code>data/raw/</code>, <code>data/processed/</code>, <code>src/</code>, <code>reports/</code>, <code>tests/</code>, <code>notebooks/</code>).</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Initialize virtual environment with Python 3.10+: <code>python -m venv .venv</code> and activate.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Install dependencies: <code>pip install pandas numpy pyarrow statsmodels yfinance transformers torch scipy matplotlib seaborn</code>.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Create <code>.gitignore</code> excluding <code>data/raw/</code>, <code>data/processed/</code>, <code>.venv/</code>, and PyTorch model caches.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Run sanity test script checking that <code>pipeline("sentiment-analysis", model="ProsusAI/finbert")</code> classifies a test sentence.</div>
+            </label>
+          </div>
+
+          <div class="done-when-banner">
+            <span class="done-when-title">Done When:</span>
+            <span class="done-when-text">Environment imports without error, FinBERT returns label/score for test phrase, and initial Git commit is made.</span>
+          </div>
+        </div>
+
+        <!-- Phase 1 -->
+        <div class="phase-card" id="phase-1">
+          <div class="phase-top">
+            <div class="phase-title-wrap">
+              <div class="phase-number">1</div>
+              <div>
+                <div class="phase-title">Phase 1: Multi-Modal Data Sourcing</div>
+                <div style="font-size: 0.84rem; color: var(--text-muted);">Transcripts, daily adjusted stock prices, market benchmarks, and EPS surprise feeds.</div>
+              </div>
+            </div>
+            <span class="phase-timing">Week 1</span>
+          </div>
+
+          <div class="checklist-group">
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Download test transcripts from Hugging Face (e.g. <code>soumakchak/earnings_call_transcript_lite</code> or <code>kurry/sp500_earnings_transcripts</code>).</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Verify dataset card licenses (Academic/Research permissible) and document fields in <code>data/README.md</code>.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Fetch daily adjusted close prices for all sample tickers via <code>yfinance</code>.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Fetch SPY ETF daily return series for the estimation period.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Collect call timing metadata (BMO vs AMC) and EPS surprises (Actual - Consensus).</div>
+            </label>
+          </div>
+
+          <div class="done-when-banner">
+            <span class="done-when-title">Done When:</span>
+            <span class="done-when-text">Raw files saved in <code>data/raw/</code> with date stamps, and ticker-date intersection confirmed.</span>
+          </div>
+        </div>
+
+        <!-- Phase 2 -->
+        <div class="phase-card" id="phase-2">
+          <div class="phase-top">
+            <div class="phase-title-wrap">
+              <div class="phase-number">2</div>
+              <div>
+                <div class="phase-title">Phase 2: Cleaning, Disclaimers & Q&A Separation</div>
+                <div style="font-size: 0.84rem; color: var(--text-muted);">Build <code>src/clean.py</code> to produce structured call table.</div>
+              </div>
+            </div>
+            <span class="phase-timing">Week 1</span>
+          </div>
+
+          <div class="checklist-group">
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Implement safe-harbor and operator removal regex.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Implement <code>split_sections()</code> to bifurcate text into Prepared Remarks and Q&A.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Filter out corrupted or ultra-short transcripts (&lt; 500 words).</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Deduplicate identical (ticker, date) rows. Save clean output to <code>data/processed/calls_clean.parquet</code>.</div>
+            </label>
+          </div>
+
+          <div class="done-when-banner">
+            <span class="done-when-title">Done When:</span>
+            <span class="done-when-text">Call-level Parquet generated with logged exclusion metrics detailing exactly why rows were dropped.</span>
+          </div>
+        </div>
+
+        <!-- Phase 3 -->
+        <div class="phase-card" id="phase-3">
+          <div class="phase-top">
+            <div class="phase-title-wrap">
+              <div class="phase-number">3</div>
+              <div>
+                <div class="phase-title">Phase 3: Event Study & Abnormal Return Modeling</div>
+                <div style="font-size: 0.84rem; color: var(--text-muted);">Implement <code>src/event_study.py</code> with Day 0 market calendar alignment.</div>
+              </div>
+            </div>
+            <span class="phase-timing">Week 2</span>
+          </div>
+
+          <div class="checklist-group">
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Define Day 0: next trading day for AMC, current trading day for BMO.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Estimate OLS market model over window [-250, -30] with min 120 trading days.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Compute AR and CAR for windows [0, +1], [0, +2], and [-1, +1].</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Plot CAR distribution and winsorize extreme data anomalies (>30% single-day non-biotech moves).</div>
+            </label>
+          </div>
+
+          <div class="done-when-banner">
+            <span class="done-when-title">Done When:</span>
+            <span class="done-when-text"><code>data/processed/car.parquet</code> created; manual spot check of 10 calls validates correct Day 0 alignment.</span>
+          </div>
+        </div>
+
+        <!-- Phase 4 -->
+        <div class="phase-card" id="phase-4">
+          <div class="phase-top">
+            <div class="phase-title-wrap">
+              <div class="phase-number">4</div>
+              <div>
+                <div class="phase-title">Phase 4: Dual Sentiment Scoring Engine</div>
+                <div style="font-size: 0.84rem; color: var(--text-muted);">Loughran-McDonald Word Counts + FinBERT 510-Token Chunking.</div>
+              </div>
+            </div>
+            <span class="phase-timing">Week 2</span>
+          </div>
+
+          <div class="checklist-group">
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Build <code>src/sentiment_lm.py</code>: compute <code>(pos - neg) / total_words</code> for Prepared and Q&A.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Build <code>src/sentiment_finbert.py</code>: sentence tokenization + greedy chunker (&le; 510 tokens).</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Enable GPU batch inference (batch size 16/32) with automatic checkpointing every 250 calls.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Compute <code>finbert_score</code> and <code>share_negative</code> across full call, prepared, and Q&A.</div>
+            </label>
+          </div>
+
+          <div class="done-when-banner">
+            <span class="done-when-title">Done When:</span>
+            <span class="done-when-text">Both <code>scores_lm.parquet</code> and <code>scores_finbert.parquet</code> populated for 100% of valid calls.</span>
+          </div>
+        </div>
+
+        <!-- Phase 5 -->
+        <div class="phase-card" id="phase-5">
+          <div class="phase-top">
+            <div class="phase-title-wrap">
+              <div class="phase-number">5</div>
+              <div>
+                <div class="phase-title">Phase 5: Human Ground Truth Validation</div>
+                <div style="font-size: 0.84rem; color: var(--text-muted);">Stratified 200-sentence holdout evaluation and confusion matrix.</div>
+              </div>
+            </div>
+            <span class="phase-timing">Week 2</span>
+          </div>
+
+          <div class="checklist-group">
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Sample 200 sentences stratified across companies, years, and sections into <code>data/labels/sample_to_label.csv</code>.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Hand-annotate ground truth labels (Positive, Neutral, Negative) blindly.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Calculate Precision, Recall, Macro F1, and Confusion Matrix for FinBERT vs LM baseline.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Document failure modes (e.g., hedged guidance, litigious tone) in <code>reports/validation.md</code>.</div>
+            </label>
+          </div>
+
+          <div class="done-when-banner">
+            <span class="done-when-title">Done When:</span>
+            <span class="done-when-text">Holdout F1 report completed proving FinBERT superiority over dictionary baseline on nuance.</span>
+          </div>
+        </div>
+
+        <!-- Phase 6 & 7 -->
+        <div class="phase-card" id="phase-6-7">
+          <div class="phase-top">
+            <div class="phase-title-wrap">
+              <div class="phase-number">6-7</div>
+              <div>
+                <div class="phase-title">Phases 6-7: Exploratory Data Analysis & Controlled Regressions</div>
+                <div style="font-size: 0.84rem; color: var(--text-muted);">Multi-factor econometric testing controlling for EPS surprise, MCap, and Sector.</div>
+              </div>
+            </div>
+            <span class="phase-timing">Week 3</span>
+          </div>
+
+          <div class="checklist-group">
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Plot sentiment distribution vs CAR quintiles; inspect correlation between LM and FinBERT.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Z-score standardize sentiment metrics for direct cross-variable interpretability.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Fit baseline OLS: CAR ~ Sentiment. Fit controlled OLS: CAR ~ Sentiment + EPS_Surprise + log(MCap) + Sector_FE.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Apply firm-clustered Newey-West standard errors. Check if sentiment coefficient $t$-stat > 2.0.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Separate analysis: Prepared Remarks sentiment vs Q&A sentiment explanatory power.</div>
+            </label>
+          </div>
+
+          <div class="done-when-banner">
+            <span class="done-when-title">Done When:</span>
+            <span class="done-when-text"><code>reports/regression_results.md</code> generated with full coefficients, standard errors, and R² summary table.</span>
+          </div>
+        </div>
+
+        <!-- Phase 8 & 9 -->
+        <div class="phase-card" id="phase-8-9">
+          <div class="phase-top">
+            <div class="phase-title-wrap">
+              <div class="phase-number">8-9</div>
+              <div>
+                <div class="phase-title">Phases 8-9: Trading Backtest & Out-of-Sample Freeze</div>
+                <div style="font-size: 0.84rem; color: var(--text-muted);">Realistic long-short portfolio simulation under transaction cost sensitivity.</div>
+              </div>
+            </div>
+            <span class="phase-timing">Week 4</span>
+          </div>
+
+          <div class="checklist-group">
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Construct Long Q5 / Short Q1 portfolio rebalanced at each earnings event.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Enforce strict zero look-ahead: trade execution strictly at post-call entry prices.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Apply slippage and transaction costs: 5 bps, 10 bps, 20 bps, and 50 bps per side.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Split data by time: Freeze hyperparameters on 2015-2020. Evaluate out-of-sample on 2021-2025.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Compute net Sharpe, Max Drawdown, Calmar ratio, and cumulative return vs SPY benchmark.</div>
+            </label>
+          </div>
+
+          <div class="done-when-banner">
+            <span class="done-when-title">Done When:</span>
+            <span class="done-when-text">Out-of-sample performance recorded truthfully in <code>reports/spec_frozen.md</code> regardless of whether net alpha is positive or eroded by fees.</span>
+          </div>
+        </div>
+
+        <!-- Phase 10, 11 & 12 -->
+        <div class="phase-card" id="phase-10-12">
+          <div class="phase-top">
+            <div class="phase-title-wrap">
+              <div class="phase-number">10-12</div>
+              <div>
+                <div class="phase-title">Phases 10-12: Robustness, Executive Report & Streamlit Demo</div>
+                <div style="font-size: 0.84rem; color: var(--text-muted);">Stress tests, final 4-page paper, and interactive web dashboard.</div>
+              </div>
+            </div>
+            <span class="phase-timing">Week 5</span>
+          </div>
+
+          <div class="checklist-group">
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Robustness: exclude COVID-19 March 2020 crash, re-test on Large Caps vs Mid/Small Caps.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Write <code>reports/final_report.md</code> covering Problem, Data, Methods, Findings, and Real-world Limitations.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Build <code>app.py</code> (Streamlit): paste transcript &rarr; view sentence breakdown & Prepared vs Q&A sentiment.</div>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" onchange="updateProgress(this)">
+              <div class="check-item-text">Freeze environment: <code>pip freeze > requirements.txt</code> and tag Git release <code>git tag v1.0</code>.</div>
+            </label>
+          </div>
+
+          <div class="done-when-banner">
+            <span class="done-when-title">Done When:</span>
+            <span class="done-when-text">A peer can clone repository, run <code>pip install -r requirements.txt</code>, reproduce all tables, and launch interactive demo.</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Section 6: Risk & Pitfall Matrix -->
+    <section id="pitfalls">
+      <div class="section-header">
+        <div class="section-title">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Critical Methodological Pitfall Matrix
+        </div>
+        <span class="section-tag">Essential Guardrails</span>
+      </div>
+
+      <div class="pitfall-table-wrap">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Pitfall / Trap</th>
+              <th>Impact on Results</th>
+              <th>Mandatory Engineering Safeguard</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="badge-risk">Look-Ahead Bias</span></td>
+              <td>Artificially inflated Sharpe & fake predictive power.</td>
+              <td><span class="badge-mitigation">Fix:</span> Strict point-in-time consensus EPS. Day 0 market model calibrated on $[-250, -30]$ ending strictly before event.</td>
+            </tr>
+            <tr>
+              <td><span class="badge-risk">AMC vs BMO Timing</span></td>
+              <td>Measuring return on Day 0 for After-Close call captures pre-call price noise!</td>
+              <td><span class="badge-mitigation">Fix:</span> AMC calls must trigger reaction measurement on $T+1$ trading day via <code>get_event_day_zero()</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="badge-risk">512-Token Truncation</span></td>
+              <td>Losing 85% of call content (10,000 words truncated to first 400).</td>
+              <td><span class="badge-mitigation">Fix:</span> Sentence-boundary preserving chunking with aggregation over all chunks in <code>src/sentiment_finbert.py</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="badge-risk">EPS Confounding</span></td>
+              <td>Sentiment is merely an echo of earnings surprise.</td>
+              <td><span class="badge-mitigation">Fix:</span> Multivariate regression controlling for standardized actual vs consensus EPS surprise.</td>
+            </tr>
+            <tr>
+              <td><span class="badge-risk">Transaction Cost Erasure</span></td>
+              <td>Short holding period (1-2 days) results in 200%+ annualized turnover.</td>
+              <td><span class="badge-mitigation">Fix:</span> Sensitivity testing at 5, 10, 20, 50 bps per leg. Net-of-cost Sharpe reporting.</td>
+            </tr>
+            <tr>
+              <td><span class="badge-risk">Class Imbalance Mirage</span></td>
+              <td>High accuracy achieved by simply predicting majority class (Positive).</td>
+              <td><span class="badge-mitigation">Fix:</span> Enforce Macro F1 and per-class precision/recall on neutral class in <code>reports/validation.md</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="badge-risk">Survivorship Bias</span></td>
+              <td>Testing only on firms in today's S&P 500 misses historical delistings & bankruptcies.</td>
+              <td><span class="badge-mitigation">Fix:</span> Document index point-in-time composition limitations in report limitations section.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Floating Sticky Action Bar -->
+  <div class="floating-summary">
+    <div class="floating-summary-text" id="floating-status">
+      Ready to implement Phase 0
+    </div>
+    <button class="floating-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+      Back to Top
+    </button>
+  </div>
+
+  <script>
+    // LocalStorage Persistent Task Tracking
+    const storageKey = 'earnings_sentiment_progress_v1';
+    
+    function initProgress() {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+      const checkboxes = document.querySelectorAll('.check-item input[type="checkbox"]');
+      
+      checkboxes.forEach((cb, idx) => {
+        if (saved[idx]) {
+          cb.checked = true;
+          cb.closest('.check-item').classList.add('completed');
+        }
+      });
+      recalcProgress();
+    }
+
+    function updateProgress(cb) {
+      const parent = cb.closest('.check-item');
+      if (cb.checked) {
+        parent.classList.add('completed');
+      } else {
+        parent.classList.remove('completed');
+      }
+
+      const checkboxes = document.querySelectorAll('.check-item input[type="checkbox"]');
+      const state = {};
+      checkboxes.forEach((item, idx) => {
+        state[idx] = item.checked;
+      });
+      localStorage.setItem(storageKey, JSON.stringify(state));
+      recalcProgress();
+    }
+
+    function recalcProgress() {
+      const checkboxes = document.querySelectorAll('.check-item input[type="checkbox"]');
+      const total = checkboxes.length;
+      let checked = 0;
+      checkboxes.forEach(cb => { if (cb.checked) checked++; });
+
+      const pct = total > 0 ? Math.round((checked / total) * 100) : 0;
+      document.getElementById('progress-percentage').innerText = pct + '%';
+      document.getElementById('progress-bar').style.width = pct + '%';
+      document.getElementById('progress-count').innerText = `${checked} of ${total} tasks completed`;
+      
+      const floatStatus = document.getElementById('floating-status');
+      if (pct === 100) {
+        floatStatus.innerText = '🎉 All 12 Phases Completed!';
+      } else {
+        floatStatus.innerText = `Progress: ${pct}% (${checked}/${total} tasks)`;
+      }
+    }
+
+    // Copy to clipboard helper
+    function copySnippet(btn) {
+      const pre = btn.closest('.code-block').querySelector('pre code');
+      navigator.clipboard.writeText(pre.innerText).then(() => {
+        const orig = btn.innerText;
+        btn.innerText = 'Copied!';
+        setTimeout(() => { btn.innerText = orig; }, 2000);
+      });
+    }
+
+    // Global Search & Filter
+    document.getElementById('global-search').addEventListener('input', function(e) {
+      const term = e.target.value.toLowerCase().trim();
+      const fnCards = document.querySelectorAll('.fn-card');
+      const phaseCards = document.querySelectorAll('.phase-card');
+      const treeItems = document.querySelectorAll('.tree-item');
+
+      if (!term) {
+        fnCards.forEach(c => c.style.display = '');
+        phaseCards.forEach(c => c.style.display = '');
+        treeItems.forEach(c => c.style.display = '');
+        return;
+      }
+
+      fnCards.forEach(card => {
+        const text = card.innerText.toLowerCase();
+        card.style.display = text.includes(term) ? '' : 'none';
+      });
+
+      phaseCards.forEach(card => {
+        const text = card.innerText.toLowerCase();
+        card.style.display = text.includes(term) ? '' : 'none';
+      });
+
+      treeItems.forEach(item => {
+        const text = item.innerText.toLowerCase();
+        item.style.display = text.includes(term) ? '' : 'none';
+      });
+    });
+
+    // Category Filter Buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        const filter = this.getAttribute('data-filter');
+
+        const secFunc = document.getElementById('function-catalog');
+        const secTree = document.getElementById('file-structure');
+        const secPhase = document.getElementById('phase-guide');
+
+        if (filter === 'all') {
+          secFunc.style.display = '';
+          secTree.style.display = '';
+          secPhase.style.display = '';
+        } else if (filter === 'functions') {
+          secFunc.style.display = '';
+          secTree.style.display = 'none';
+          secPhase.style.display = 'none';
+          secFunc.scrollIntoView({ behavior: 'smooth' });
+        } else if (filter === 'files') {
+          secFunc.style.display = 'none';
+          secTree.style.display = '';
+          secPhase.style.display = 'none';
+          secTree.scrollIntoView({ behavior: 'smooth' });
+        } else if (filter === 'phases') {
+          secFunc.style.display = 'none';
+          secTree.style.display = 'none';
+          secPhase.style.display = '';
+          secPhase.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    });
+
+    // Expand/Collapse Tree View
+    function toggleAllTrees(expand) {
+      const items = document.querySelectorAll('.tree-body .tree-item.file');
+      items.forEach(item => {
+        item.style.display = expand ? '' : 'none';
+      });
+    }
+
+    // Scroll spy for sidebar
+    window.addEventListener('scroll', () => {
+      const sections = document.querySelectorAll('section, .hero-banner');
+      const navLinks = document.querySelectorAll('.nav-item');
+      let current = '';
+
+      sections.forEach(sec => {
+        const secTop = sec.offsetTop - 120;
+        if (pageYOffset >= secTop) {
+          current = sec.getAttribute('id');
+        }
+      });
+
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) {
+          link.classList.add('active');
+        }
+      });
+    });
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', initProgress);
+  </script>
+</body>
+</html>
